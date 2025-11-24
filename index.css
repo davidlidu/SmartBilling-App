@@ -1,0 +1,5 @@
+/* You can add global styles here if needed, or leave it empty */
+/* For example, to ensure Tailwind base styles are applied if not using a PostCSS setup with Vite: */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

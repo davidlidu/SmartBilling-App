@@ -1,0 +1,214 @@
+
+<?php
+// controllers/PaymentController.php
+
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../database.php';
+
+// Assume generate_uuid_v4() and json_response() are available from config.php or a helper
+// For example:
+/*
+if (!function_exists('generate_uuid_v4')) {
+    function generate_uuid_v4() {
+        // Basic UUID v4 generation if `uuid` extension is not available
+        return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0x0fff) | 0x4000,
+            mt_rand(0, 0x3fff) | 0x8000,
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+        );
+    }
+}
+
+if (!function_exists('json_response')) {
+    function json_response($data, $statusCode = 200) {
+        header('Content-Type: application/json');
+        http_response_code($statusCode);
+        echo json_encode($data);
+        return; // Ensure script termination
+    }
+}
+*/
+
+
+class PaymentController {
+    private $db;
+
+    public function __construct() {
+        $this->db = Database::getInstance()->getConnection(); // Assuming Database is a singleton or similar
+    }
+
+    public function createPayment() {
+        $input = file_get_contents("php://input");
+        error_log("Received payment payload: " . $input);
+        $data = json_decode($input, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log("Invalid JSON payload: " . json_last_error_msg());
+            json_response(["message" => "Solicitud JSON inválida: " . json_last_error_msg()], 400);
+            return;
+        }
+
+        if (!isset($data['clientId'], $data['amount'], $data['date'])) {
+            error_log("Missing required fields. Data: " . json_encode($data));
+            json_response(["message" => "Faltan campos requeridos: clientId, amount, date"], 400);
+            return;
+        }
+        
+        if (!is_numeric($data['amount']) || floatval($data['amount']) <= 0) {
+            error_log("Invalid amount: " . $data['amount']);
+            json_response(["message" => "El monto debe ser un número positivo."], 400);
+            return;
+        }
+
+        // Basic date validation (YYYY-MM-DD)
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $data['date'])) {
+            error_log("Invalid date format: " . $data['date']);
+            json_response(["message" => "El formato de fecha debe ser YYYY-MM-DD."], 400);
+            return;
+        }
+
+
+        $proofUrl = null;
+        if (isset($data['proofBase64']) && !empty($data['proofBase64'])) {
+            $proofUrl = $this->saveProofImage($data['proofBase64']);
+            if ($proofUrl === false) { // Check for explicit false, as null means no image provided
+                // saveProofImage should have logged the specific error
+                json_response(["message" => "Error al procesar o guardar la imagen de prueba."], 500);
+                return;
+            }
+        }
+
+        $paymentId = generate_uuid_v4(); // Ensure this function is available
+
+        try {
+            $stmt = $this->db->prepare("
+                INSERT INTO payments (id, clientId, amount, date, method, notes, proofUrl)
+                VALUES (:id, :clientId, :amount, :date, :method, :notes, :proofUrl)
+            ");
+
+            $stmt->execute([
+                'id' => $paymentId,
+                'clientId' => $data['clientId'],
+                'amount' => floatval($data['amount']),
+                'date' => $data['date'],
+                'method' => $data['method'] ?? null,
+                'notes' => $data['notes'] ?? null,
+                'proofUrl' => $proofUrl, // Will be null if no image or if saveProofImage returned null
+            ]);
+
+            json_response(["id" => $paymentId, "message" => "Pago registrado exitosamente."], 201);
+            return;
+        } catch (PDOException $e) {
+            error_log("createPayment DB error: " . $e->getMessage() . " SQLSTATE: " . $e->getCode());
+            $userMessage = 'Error al guardar el pago.';
+            if ($e->getCode() == '23000') { // Integrity constraint violation
+                 if (strpos($e->getMessage(), 'FOREIGN KEY (`clientId`)') !== false) {
+                    $userMessage = 'Error al guardar el pago: El cliente especificado no existe.';
+                 } else {
+                    $userMessage = 'Error al guardar el pago: Problema de datos duplicados o referencia inválida.';
+                 }
+            }
+            json_response(['message' => $userMessage, 'detail' => $e->getMessage()], 500);
+            return;
+        }
+    }
+
+    private function saveProofImage($base64Image) {
+        if (empty($base64Image)) {
+            error_log("saveProofImage: base64Image string is empty.");
+            return null; // No image to process
+        }
+
+        if (preg_match('/^data:image\/(\w+);base64,/', $base64Image, $type)) {
+            $imageData = substr($base64Image, strpos($base64Image, ',') + 1);
+            $imageType = strtolower($type[1]);
+            
+            // Expanded allowed types
+            $allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            if (!in_array($imageType, $allowedTypes)) {
+                error_log("saveProofImage: Unsupported image type: " . $imageType);
+                return false; // Indicate error
+            }
+
+            $decodedData = base64_decode($imageData);
+            if ($decodedData === false) {
+                error_log("saveProofImage: base64_decode failed.");
+                return false; // Indicate error
+            }
+
+            $filename = uniqid('proof_') . '.' . $imageType;
+            // Ensure the path is correct relative to your project structure for web accessibility
+            // Typically, 'uploads' would be at the root, and accessed via /uploads/
+            $uploadDir = __DIR__ . '/../uploads/comprobantes/'; 
+            $filePath = $uploadDir . $filename;
+            $publicUrl = '/uploads/comprobantes/' . $filename; // URL accessible by the client
+
+            if (!is_dir($uploadDir)) {
+                error_log("saveProofImage: Upload directory does not exist: " . $uploadDir);
+                if (!mkdir($uploadDir, 0777, true)) {
+                    error_log("saveProofImage: Failed to create upload directory: " . $uploadDir);
+                    return false; // Indicate error
+                }
+                error_log("saveProofImage: Created upload directory: " . $uploadDir);
+            } else {
+                 error_log("saveProofImage: Upload directory exists: " . $uploadDir);
+            }
+
+            if (!is_writable($uploadDir)) {
+                error_log("saveProofImage: Upload directory is not writable: " . $uploadDir);
+                return false; // Indicate error
+            }
+
+            if (file_put_contents($filePath, $decodedData)) {
+                error_log("saveProofImage: Image saved successfully to " . $filePath);
+                return $publicUrl;
+            } else {
+                error_log("saveProofImage: Failed to write image to file: " . $filePath);
+                return false; // Indicate error
+            }
+        }
+        error_log("saveProofImage: base64Image string does not match expected format.");
+        return false; // Indicate error if format is wrong
+    }
+
+    public function getPaymentsByClient($clientId) {
+        // It's good practice to validate $clientId if it's coming directly from URL params
+        // e.g., ensure it's a valid UUID format or whatever your ID format is.
+        if (empty($clientId)) {
+             json_response(["message" => "Client ID es requerido."], 400);
+             return;
+        }
+
+        try {
+            error_log('Getting payments for clientId: ' . $clientId);
+            $stmt = $this->db->prepare("SELECT * FROM payments WHERE clientId = :clientId ORDER BY date DESC");
+            $stmt->execute(['clientId' => $clientId]);
+            $payments = $stmt->fetchAll(); // PDO::FETCH_ASSOC is often default or can be set
+            json_response($payments);
+            return;
+        } catch (PDOException $e) {
+            error_log('getPaymentsByClient DB error: ' . $e->getMessage());
+            json_response(['message' => 'Error al obtener los pagos del cliente.', 'detail' => $e->getMessage()], 500);
+            return;
+        }
+    }
+}
+
+// Example of how this might be routed (simplified, usually in a router file)
+/*
+$requestUri = $_SERVER['REQUEST_URI'];
+$method = $_SERVER['REQUEST_METHOD'];
+
+if (preg_match('/\/api\/payments$/', $requestUri) && $method === 'POST') {
+    $controller = new PaymentController();
+    $controller->createPayment();
+} elseif (preg_match('/\/api\/clients\/([a-zA-Z0-9-]+)\/payments$/', $requestUri, $matches) && $method === 'GET') {
+    $clientId = $matches[1];
+    $controller = new PaymentController();
+    $controller->getPaymentsByClient($clientId);
+}
+*/
+
+?>

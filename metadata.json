@@ -1,0 +1,6 @@
+{
+  "name": "Generador de Facturas Pro",
+  "description": "Una aplicación React para crear, gestionar y exportar facturas en formato PDF. Incluye gestión de clientes e historial de facturas.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
