@@ -67,7 +67,9 @@ const InvoicePdfViewPage: React.FC = () => {
     if (!invoice) return;
     setIsGeneratingPdf(true);
     try {
-      await generatePdfFromElement('invoice-pdf-content', `Factura-${invoice.invoiceNumber}.pdf`, quality);
+      // Filename includes "Borrador" if low quality or just Invoice number
+      const suffix = quality === 'low' ? '-Web' : '';
+      await generatePdfFromElement('invoice-pdf-content', `Factura-${invoice.invoiceNumber}${suffix}.pdf`, quality);
     } catch(e) {
         console.error("Error en la generación del PDF:", e);
     } finally {
@@ -79,7 +81,9 @@ const InvoicePdfViewPage: React.FC = () => {
     const queryParams = new URLSearchParams(location.search);
     const shouldDownload = queryParams.get('download') === 'true';
 
+    // Wait for data to load, then trigger download if requested
     if (shouldDownload && !isLoading && !error && invoice && !isGeneratingPdf && !hasTriggeredDownload) {
+        // We use 'low' quality for the auto-download action to make it faster/smaller
         handleGeneratePdf('low');
         setHasTriggeredDownload(true);
     }
@@ -122,14 +126,25 @@ const InvoicePdfViewPage: React.FC = () => {
             <Link to="/invoices" className="text-primary hover:text-primary-dark p-2 rounded-full hover:bg-primary-light/10 flex items-center self-start">
                 <ArrowLeft size={20} className="mr-1" /> Volver al Listado
             </Link>
-            <button
-                onClick={() => handleGeneratePdf('high')}
-                disabled={isGeneratingPdf}
-                className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md flex items-center transition-colors disabled:opacity-50 w-full sm:w-auto justify-center"
-            >
-                {isGeneratingPdf ? <LoadingSpinner size={5} /> : <Download size={20} className="mr-2" />}
-                {isGeneratingPdf ? 'Generando...' : 'Descargar PDF (Alta Calidad)'}
-            </button>
+            
+            <div className="flex gap-2">
+                <button
+                    onClick={() => handleGeneratePdf('low')}
+                    disabled={isGeneratingPdf}
+                    className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md flex items-center transition-colors disabled:opacity-50 text-sm"
+                >
+                    {isGeneratingPdf ? <LoadingSpinner size={4} /> : <Download size={16} className="mr-2" />}
+                    PDF Web (Ligero)
+                </button>
+                <button
+                    onClick={() => handleGeneratePdf('high')}
+                    disabled={isGeneratingPdf}
+                    className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md flex items-center transition-colors disabled:opacity-50"
+                >
+                    {isGeneratingPdf ? <LoadingSpinner size={5} /> : <Download size={20} className="mr-2" />}
+                    {isGeneratingPdf ? 'Generando...' : 'Descargar PDF (Alta Calidad)'}
+                </button>
+            </div>
         </div>
 
       <div id="invoice-pdf-content" className="bg-white p-8 md:p-10 shadow-xl max-w-4xl mx-auto text-sm font-['Verdana', 'sans-serif']">

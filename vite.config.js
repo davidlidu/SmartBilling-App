@@ -5,6 +5,15 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: '/facturador/', // Important for deploying to a subfolder
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
+  },
   build: {
     chunkSizeWarningLimit: 600, // Optional: slightly increase limit if needed after splitting
     rollupOptions: {

@@ -1,5 +1,9 @@
-/* You can add global styles here if needed, or leave it empty */
-/* For example, to ensure Tailwind base styles are applied if not using a PostCSS setup with Vite: */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* 
+  Tailwind directives are commented out because we are using the CDN in index.html 
+  to ensure styles load without requiring a specific PostCSS build configuration.
+*/
+/* @tailwind base; */
+/* @tailwind components; */
+/* @tailwind utilities; */
+
+/* Add any custom global CSS below if needed */

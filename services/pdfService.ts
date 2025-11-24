@@ -10,75 +10,61 @@ export const generatePdfFromElement = async (elementId: string, fileName: string
     return;
   }
 
-  const scale = quality === 'high' ? 2 : 1.2; // Control quality via scale
+  // Quality control: High (Print) = scale 2 or 3, Low (Web/Email) = scale 1 or 1.2
+  // Reducing scale significantly reduces file size.
+  const scale = quality === 'high' ? 2 : 1; 
 
   const html2canvasOptions = {
-    scale, // Use the determined scale
+    scale, 
     useCORS: true,
-    logging: true,
+    logging: false, // Turn off logging for production feel
+    backgroundColor: '#ffffff', // Ensure white background
   };
-  console.log('html2canvas options:', html2canvasOptions);
 
   try {
     const canvas = await html2canvas(input, html2canvasOptions);
-    console.log(`Canvas created with dimensions: ${canvas.width}x${canvas.height}`);
 
     if (!canvas.width || !canvas.height) {
-      console.error('html2canvas returned a canvas with zero width or height.');
-      alert('Error: No se pudo generar el PDF porque el contenido visual no tiene dimensiones. Asegúrese de que el contenido de la factura sea visible.');
+      alert('Error: No se pudo generar el PDF porque el contenido visual no tiene dimensiones.');
       return;
     }
 
-    const imgData = canvas.toDataURL('image/png');
-    console.log(`imgData length: ${imgData.length}, starts with: ${imgData.substring(0, 50)}`);
-    if (imgData === 'data:,') {
-        console.error('html2canvas produced empty image data.');
-        alert('Error: No se pudo generar el PDF porque la captura de la imagen falló.');
-        return;
-    }
+    const imgData = canvas.toDataURL(quality === 'high' ? 'image/png' : 'image/jpeg', quality === 'high' ? 1.0 : 0.7);
     
-    // Determine PDF orientation and size based on content
     // A4 dimensions: 210mm x 297mm
-    const pdfWidth = 210; // A4 width in mm
-    const pageHeightA4 = 297; // A4 height in mm
+    const pdfWidth = 210; 
+    const pageHeightA4 = 297; 
 
-    const totalImageHeightInMM = (canvas.height * pdfWidth) / canvas.width; // Maintain aspect ratio, total height in mm
-    console.log(`Calculated PDF page width: ${pdfWidth}mm, total scaled image height: ${totalImageHeightInMM}mm`);
+    const totalImageHeightInMM = (canvas.height * pdfWidth) / canvas.width; 
 
     const pdf = new jsPDF({
       orientation: pdfWidth > totalImageHeightInMM ? 'landscape' : 'portrait',
       unit: 'mm',
-      format: [pdfWidth, pageHeightA4] 
+      format: [pdfWidth, pageHeightA4],
+      compress: true // Enable internal PDF compression
     });
     
     const imgHeightScaledToPdf = totalImageHeightInMM;
-
     let position = 0;
 
+    // Single page check
     if (imgHeightScaledToPdf <= pageHeightA4) {
-        console.log('Content fits on a single page.');
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeightScaledToPdf);
+        pdf.addImage(imgData, quality === 'high' ? 'PNG' : 'JPEG', 0, 0, pdfWidth, imgHeightScaledToPdf);
     } else {
-        console.log('Content requires multiple pages.');
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeightScaledToPdf);
+        // Multi-page logic
+        pdf.addImage(imgData, quality === 'high' ? 'PNG' : 'JPEG', 0, position, pdfWidth, imgHeightScaledToPdf);
         let heightLeftOnImage = imgHeightScaledToPdf - pageHeightA4;
         position -= pageHeightA4;
 
-        console.log(`Page 1 added. Image Y position: 0. Height left on image: ${heightLeftOnImage}mm`);
-
         while (heightLeftOnImage > 0) {
             pdf.addPage();
-            console.log(`Adding page ${pdf.getNumberOfPages()}, current image Y position for addImage: ${position}mm`);
-            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, imgHeightScaledToPdf);
+            pdf.addImage(imgData, quality === 'high' ? 'PNG' : 'JPEG', 0, position, pdfWidth, imgHeightScaledToPdf);
             heightLeftOnImage -= pageHeightA4;
             position -= pageHeightA4;
-            console.log(`Image Y position for next iteration: ${position}. Height left on image: ${heightLeftOnImage}mm`);
         }
     }
     
-    console.log('Attempting to save PDF as:', fileName);
     pdf.save(fileName);
-    console.log('PDF save command issued.');
 
   } catch (error) {
     console.error('Error generating PDF:', error);

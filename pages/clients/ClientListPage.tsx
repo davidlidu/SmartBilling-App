@@ -112,13 +112,17 @@ const ClientListPage: React.FC = () => {
                 <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{client.phone}</td>
                 <td className="px-5 py-4 border-b border-gray-200 text-sm">
                   <div className="flex space-x-2">
-                    <button onClick={() => setClientForPayments(client)} className="text-green-600 hover:text-green-800 p-1" title="Gestionar Pagos">
+                    <button 
+                        onClick={() => setClientForPayments(client)} 
+                        className="bg-green-100 text-green-700 hover:bg-green-200 hover:text-green-900 p-2 rounded-md transition-colors" 
+                        title="Gestionar Pagos"
+                    >
                         <DollarSign size={18} />
                     </button>
-                    <Link to={`/clients/${client.id}/edit`} className="text-primary-dark hover:text-primary p-1" title="Editar Cliente">
+                    <Link to={`/clients/${client.id}/edit`} className="text-primary-dark hover:text-primary p-2" title="Editar Cliente">
                       <Edit3 size={18} />
                     </Link>
-                    <button onClick={() => setClientToDelete(client)} className="text-danger hover:text-red-700 p-1" title="Eliminar Cliente">
+                    <button onClick={() => setClientToDelete(client)} className="text-danger hover:text-red-700 p-2" title="Eliminar Cliente">
                       <Trash2 size={18} />
                     </button>
                   </div>
@@ -130,15 +134,19 @@ const ClientListPage: React.FC = () => {
       </div>
       )}
 
-      <Modal
-        isOpen={!!clientForPayments}
-        onClose={() => setClientForPayments(null)}
-        title={`Gestión de Pagos: ${clientForPayments?.name}`}
-        size="2xl"
-      >
-        {clientForPayments && <PaymentManager client={clientForPayments} onClose={() => setClientForPayments(null)} />}
-      </Modal>
+      {/* Payment Modal */}
+      {clientForPayments && (
+        <Modal
+            isOpen={!!clientForPayments}
+            onClose={() => setClientForPayments(null)}
+            title={`Gestión de Pagos: ${clientForPayments.name}`}
+            size="2xl"
+        >
+            <PaymentManager client={clientForPayments} onClose={() => setClientForPayments(null)} />
+        </Modal>
+      )}
 
+      {/* Delete Confirmation Modal */}
       <Modal
         isOpen={!!clientToDelete}
         onClose={() => setClientToDelete(null)}

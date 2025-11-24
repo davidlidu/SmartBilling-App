@@ -105,7 +105,7 @@ const InvoiceListPage: React.FC = () => {
             <p className="text-gray-500">Intenta ajustar tu búsqueda o crea una nueva factura.</p>
         </div>
       ) : (
-      <div className="bg-white shadow-lg rounded-lg overflow-x-auto"> {/* Added overflow-x-auto */}
+      <div className="bg-white shadow-lg rounded-lg overflow-x-auto">
         <table className="min-w-full leading-normal">
           <thead className="bg-gray-50">
             <tr>
@@ -129,12 +129,26 @@ const InvoiceListPage: React.FC = () => {
                 <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{formatCurrency(calculateInvoiceTotal(invoice))}</td>
                 <td className="px-5 py-4 border-b border-gray-200 text-sm">
                   <div className="flex space-x-3">
-                    <Link to={`/invoices/${invoice.id}/view`} className="text-gray-600 hover:text-gray-900 p-1" title="Ver Factura">
+                    {/* View Icon - Goes to detailed view */}
+                    <Link 
+                        to={`/invoices/${invoice.id}/view`} 
+                        className="text-gray-600 hover:text-blue-600 p-1" 
+                        title="Ver Factura (Detalle)"
+                    >
                         <Eye size={18} />
                     </Link>
-                    <a href={`#/invoices/${invoice.id}/view?download=true`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 p-1" title="Descargar PDF Comprimido">
+
+                    {/* Download Icon - Triggers direct compressed download via query param */}
+                    <a 
+                        href={`#/invoices/${invoice.id}/view?download=true`} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-green-600 hover:text-green-800 p-1" 
+                        title="Descargar PDF (Comprimido/Rápido)"
+                    >
                         <Download size={18} />
                     </a>
+
                     <Link to={`/invoices/${invoice.id}/edit`} className="text-primary-dark hover:text-primary p-1" title="Editar Factura">
                       <Edit3 size={18} />
                     </Link>
