@@ -1,13 +1,21 @@
 import { Client } from '../types';
 
-const API_BASE_URL = '/api'; // PRODUCTION: Adjust to your deployed backend URL. e.g., https://yourdomain.com/api or '/api' if proxied.
+const API_BASE_URL = '/api'; 
 
 const handleResponse = async <T>(response: Response): Promise<T> => {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ message: 'Error desconocido del servidor' }));
-    throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+  const contentType = response.headers.get("content-type");
+  
+  if (contentType && contentType.indexOf("application/json") !== -1) {
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.message || `Error ${response.status}: ${response.statusText}`);
+    }
+    return data as T;
+  } else {
+    const text = await response.text();
+    console.error("Respuesta del servidor no es JSON:", text.substring(0, 200) + "...");
+    throw new Error(`Error de Servidor (Status ${response.status}). Verifica la conexión a la base de datos.`);
   }
-  return response.json() as Promise<T>;
 };
 
 export const getClients = async (): Promise<Client[]> => {
@@ -45,12 +53,8 @@ export const deleteClient = async (id: string): Promise<boolean> => {
     method: 'DELETE',
   });
   if (!response.ok) {
-    if (response.status === 400) { // Specific error for client with invoices
-        const errorData = await response.json().catch(() => ({ message: 'Error al eliminar cliente.' }));
-        throw new Error(errorData.message);
-    }
-    const errorData = await response.json().catch(() => ({ message: 'Error desconocido del servidor' }));
-    throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+     await handleResponse(response); // Will throw error
+     return false;
   }
-  return response.status === 204; // Successfully deleted
+  return response.status === 204; 
 };
