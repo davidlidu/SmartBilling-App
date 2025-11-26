@@ -1,6 +1,6 @@
 import { Client } from '../types';
 
-const API_BASE_URL = '/api'; 
+const API_BASE_URL = 'https://api.facturador.lidutech.net/api'; 
 
 const handleResponse = async <T>(response: Response): Promise<T> => {
   const contentType = response.headers.get("content-type");

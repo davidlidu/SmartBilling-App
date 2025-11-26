@@ -1,7 +1,7 @@
 import { SenderDetails } from '../types';
 import { DEFAULT_SENDER_DETAILS } from '../constants'; // For fallback/initial structure
 
-const API_BASE_URL = '/api'; // PRODUCTION: Adjust to your deployed backend URL. e.g., https://yourdomain.com/api or '/api' if proxied.
+const API_BASE_URL = 'https://api.facturador.lidutech.net/api'; // PRODUCTION: Adjust to your deployed backend URL. e.g., https://yourdomain.com/api or '/api' if proxied.
 
 const handleResponse = async <T>(response: Response): Promise<T | null> => {
   if (response.status === 404 || response.status === 204) return null; // Not found or no content

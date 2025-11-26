@@ -2,7 +2,7 @@
 import { Payment } from '../types';
 
 // Base URL for your Node.js API
-const API_BASE_URL = '/api'; 
+const API_BASE_URL = 'https://api.facturador.lidutech.net/api'; 
 
 interface PaymentInputData {
   clientId: string;

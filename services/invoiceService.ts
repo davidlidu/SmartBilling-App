@@ -1,7 +1,7 @@
 
 import { Invoice } from '../types';
 
-const API_BASE_URL = '/api'; // PRODUCTION: Adjust to your deployed backend URL. e.g., https://yourdomain.com/api or '/api' if proxied.
+const API_BASE_URL = 'https://api.facturador.lidutech.net/api'; // PRODUCTION: Adjust to your deployed backend URL. e.g., https://yourdomain.com/api or '/api' if proxied.
 
 const handleResponse = async <T>(response: Response): Promise<T> => {
   const contentType = response.headers.get("content-type");

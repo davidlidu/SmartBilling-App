@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const db = require('./database');
 
 const clientRoutes = require('./routes/clientRoutes');
@@ -12,12 +11,12 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const app = express();
 const PORT = process.env.API_PORT || 3001;
 
-// Middleware
+// Middlewares
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Request Logger (Helpful for debugging in logs)
+// Logger
 app.use((req, res, next) => {
     console.log(`[Request] ${req.method} ${req.url}`);
     next();
@@ -29,39 +28,34 @@ app.use('/api/invoices', invoiceRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/payments', paymentRoutes);
 
-// Explicit 404 for API routes to prevent falling through to index.html
-// This ensures that if an API route is missing or mistyped, the frontend gets a JSON error, not HTML.
+// 404 para API
 app.use('/api/*', (req, res) => {
     res.status(404).json({ message: `API route not found: ${req.method} ${req.url}` });
 });
 
-// --- SERVE FRONTEND STATIC FILES ---
-// This tells Express to serve the built React files from the 'dist' folder located in the project root
-app.use(express.static(path.join(__dirname, '../dist')));
+// ❗️💥 ELIMINADO: NO servir frontend aquí
+// NO static
+// NO catch-all
+// El backend SOLO responde API
 
-// Handle React Routing (SPA Catch-all)
-// Any request that doesn't match an API route will return the React index.html
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
-});
-
-// Basic error handler
+// Manejo de errores
 app.use((err, req, res, next) => {
   console.error('[Server Error]', err.stack);
   res.status(500).send({ message: err.message || 'Algo salió mal en el servidor!', detail: err.message });
 });
 
-// Test database connection
+// Test DB
 db.getConnection()
-  .then(connection => {
-    console.log('✅ Conexión a la base de datos MySQL exitosa.');
-    connection.release();
+  .then(c => {
+    console.log('✅ Conexión MySQL OK');
+    c.release();
   })
   .catch(err => {
-    console.error('❌ Error al conectar con la base de datos MySQL. Verifique las variables de entorno DB_HOST, DB_USER, etc.');
+    console.error('❌ Error MySQL');
     console.error(err);
   });
 
+// Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor API escuchando en el puerto ${PORT}`);
+  console.log(`🚀 Backend escuchando en puerto ${PORT}`);
 });
