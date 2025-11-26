@@ -1,5 +1,8 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { loginRequest } from "../services/authService"; 
+import axios from 'axios';
+const API_URL = "https://api.facturador.lidutech.net/api/auth";
+
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -33,20 +36,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (username: string, password: string) => {
     try {
-      const data = await loginRequest(email, password);
+      const res = await axios.post(`${API_URL}/auth/login`, {
+        username,
+        password
+      });
   
-      if (!data.token) {
-        throw new Error("No token returned");
-      }
-  
-      localStorage.setItem("authToken", data.token);
+      localStorage.setItem("authToken", res.data.token);
       setIsAuthenticated(true);
-    } catch (err) {
-      console.error("Login failed", err);
-      setIsAuthenticated(false);
-      throw err;
+    } catch (error) {
+      throw new Error("Credenciales incorrectas");
     }
   };
   
