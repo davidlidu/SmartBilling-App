@@ -15,7 +15,8 @@
     COPY utils ./utils
     COPY index.html index.tsx index.css ./
     
-    COPY public ./public
+    # NO public folder — removed
+    # COPY public ./public
     
     RUN npm install
     RUN npm run build
