@@ -14,6 +14,8 @@
     COPY services ./services
     COPY utils ./utils
     COPY index.html index.tsx index.css ./
+    COPY App.tsx ./
+
     
     # NO public folder — removed
     # COPY public ./public
