@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { loginRequest } from "../services/authService"; 
 import axios from 'axios';
-const API_URL = "https://api.facturador.lidutech.net/api/auth";
+const API_URL = "https://api.facturador.lidutech.net/api";
 
 
 interface AuthContextType {
