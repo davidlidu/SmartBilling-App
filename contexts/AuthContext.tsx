@@ -38,7 +38,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (username: string, password: string) => {
     try {
-      const res = await axios.post(`${API_URL}/login`, {
+      const res = await axios.post(`https://api.facturador.lidutech.net/api/auth/login`, {
         username,
         password
       });
