@@ -15,8 +15,9 @@
     COPY utils ./utils
     COPY index.html index.tsx index.css ./
     COPY App.tsx ./
-
-    
+    COPY constants.ts ./
+    COPY types.ts ./
+    COPY validations.ts ./
     # NO public folder — removed
     # COPY public ./public
     
