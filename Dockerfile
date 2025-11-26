@@ -1,39 +1,46 @@
-FROM node:20-alpine AS build
+# --- Stage 1: Build frontend ---
+    FROM node:20-alpine AS frontend
 
-# 1. Construimos el frontend
-WORKDIR /app
-
-# Copiamos archivos base
-COPY package*.json ./
-COPY tsconfig.json ./
-COPY vite.config.* ./
-
-# Copiamos código (ajusta si falta alguna carpeta)
-COPY backend ./backend
-COPY components ./components
-COPY contexts ./contexts
-COPY controllers ./controllers
-COPY pages ./pages
-COPY services ./services
-COPY utils ./utils
-COPY index.html index.tsx index.css ./ 
-
-RUN npm install
-RUN npm run build
-
-# 2. Imagen final para producción
-FROM node:20-alpine
-
-WORKDIR /app
-
-# Copiamos todo lo construido
-COPY --from=build /app ./
-
-# Usaremos las variables de entorno que pone Dokploy,
-# no hardcodees nada aquí.
-ENV NODE_ENV=production
-
-EXPOSE 3001
-
-# Arranca el backend que sirve API + frontend compilado
-CMD ["node", "backend/server.js"]
+    WORKDIR /app
+    
+    COPY package*.json ./
+    COPY tsconfig.json ./
+    COPY vite.config.* ./
+    
+    COPY components ./components
+    COPY contexts ./contexts
+    COPY controllers ./controllers
+    COPY pages ./pages
+    COPY services ./services
+    COPY utils ./utils
+    COPY index.html index.tsx index.css ./
+    
+    COPY public ./public
+    
+    RUN npm install
+    RUN npm run build
+    
+    
+    # --- Stage 2: Backend + final image ---
+    FROM node:20-alpine
+    
+    WORKDIR /app
+    
+    # Copiar backend
+    COPY backend ./backend
+    
+    # Copiar frontend ya construido
+    COPY --from=frontend /app/dist ./dist
+    
+    # Instalar dependencias del backend
+    WORKDIR /app/backend
+    COPY backend/package*.json ./
+    RUN npm install --production
+    
+    ENV NODE_ENV=production
+    ENV PORT=3001
+    
+    EXPOSE 3001
+    
+    CMD ["node", "server.js"]
+    

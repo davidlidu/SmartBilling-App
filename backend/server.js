@@ -10,7 +10,7 @@ const settingsRoutes = require('./routes/settingsRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 
 const app = express();
-const PORT = process.env.API_PORT || 3000;
+const PORT = process.env.API_PORT || 3001;
 
 // Middleware
 app.use(cors());
