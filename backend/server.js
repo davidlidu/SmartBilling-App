@@ -32,6 +32,18 @@ app.use((req, res, next) => {
     next();
 });
 
+// Responder preflight OPTIONS para todas las rutas API
+app.options('*', (req, res) => {
+  res.set({
+    "Access-Control-Allow-Origin": "https://facturador.lidutech.net",
+    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Credentials": "true",
+  });
+  res.sendStatus(204);
+});
+
+
 // API Routes
 app.use('/api/clients', clientRoutes);
 app.use('/api/invoices', invoiceRoutes);
