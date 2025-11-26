@@ -11,22 +11,27 @@ const LoginPage: React.FC = () => {
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    
-    // Simulate network delay for secure feel
-    setTimeout(() => {
-        if (username && password) {
-            login();
-            navigate('/');
-        } else {
-            setError('Credenciales inválidas. Por favor verifique.');
-            setLoading(false);
-        }
-    }, 800);
+    setError("");
+  
+    if (!username || !password) {
+      setError("Credenciales inválidas. Por favor verifique.");
+      setLoading(false);
+      return;
+    }
+  
+    try {
+      await login(username, password); // ← AHORA FUNCIONA
+      navigate("/");
+    } catch (err) {
+      setError("Credenciales incorrectas.");
+    } finally {
+      setLoading(false);
+    }
   };
+  
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-slate-100">
