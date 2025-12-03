@@ -150,7 +150,7 @@ const InvoicePdfViewPage: React.FC = () => {
                     className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md flex items-center transition-colors disabled:opacity-50"
                 >
                     {isGeneratingPdf ? <LoadingSpinner size={5} /> : <Download size={20} className="mr-2" />}
-                    {isGeneratingPdf ? 'Generando...' : 'Descargar PDF (Alta Calidad)'}
+                    {isGeneratingPdf ? 'Generando...' : 'Descargar PDF'}
                 </button>
             </div>
         </div>
@@ -160,9 +160,9 @@ const InvoicePdfViewPage: React.FC = () => {
         <div className="grid grid-cols-3 gap-4 mb-8 pb-4 border-b border-gray-300">
           <div className="col-span-2">
             {configuredSender.logoUrl && <img src={configuredSender.logoUrl} alt="Logo Empresa" className="h-12 mb-2 object-contain max-w-full" />}
-            <h1 className="text-2xl font-bold text-gray-800">{configuredSender.name}</h1>
+            {/* <h1 className="text-2xl font-bold text-gray-800">{configuredSender.name}</h1>
             <p className="text-gray-600">{configuredSender.nit}</p>
-            <p className="text-gray-600">{configuredSender.type}</p>
+            <p className="text-gray-600">{configuredSender.type}</p> */}
           </div>
           <div className="text-right">
             <h2 className="text-xl font-semibold text-primary-dark">CUENTA DE COBRO</h2>
@@ -184,26 +184,39 @@ const InvoicePdfViewPage: React.FC = () => {
         </div>
 
         {/* Line Items Table */}
-        <table className="w-full mb-8 text-left">
+        <table className="w-full mb-8 text-left table-fixed"> {/* CAMBIO 1: table-fixed */}
           <thead className="border-b-2 border-gray-700">
             <tr>
-              <th className="py-2 px-1 text-xs font-semibold text-gray-600 uppercase text-center">Ítem</th>
-              <th className="py-2 px-1 text-xs font-semibold text-gray-600 uppercase w-2/5">Descripción</th>
-              <th className="py-2 px-1 text-xs font-semibold text-gray-600 uppercase text-right">Cantidad</th>
-              <th className="py-2 px-1 text-xs font-semibold text-gray-600 uppercase text-center">Unidad</th>
-              <th className="py-2 px-1 text-xs font-semibold text-gray-600 uppercase text-right">Vr. Unitario</th>
-              <th className="py-2 px-1 text-xs font-semibold text-gray-600 uppercase text-right">Vr. Total</th>
+              <th className="py-2 px-1 text-xs font-semibold text-gray-600 uppercase text-center w-[5%]">Ítem</th>
+              {/* w-2/5 equivale al 40%, aseguramos que se respete */}
+              <th className="py-2 px-1 text-xs font-semibold text-gray-600 uppercase w-[45%]">Descripción</th> 
+              <th className="py-2 px-1 text-xs font-semibold text-gray-600 uppercase text-right w-[10%]">Cantidad</th>
+              <th className="py-2 px-1 text-xs font-semibold text-gray-600 uppercase text-center w-[10%]">Unidad</th>
+              <th className="py-2 px-1 text-xs font-semibold text-gray-600 uppercase text-right w-[15%]">Vr. Unitario</th>
+              <th className="py-2 px-1 text-xs font-semibold text-gray-600 uppercase text-right w-[15%]">Vr. Total</th>
             </tr>
           </thead>
           <tbody>
             {invoice.lineItems.map((item, index) => (
               <tr key={item.id} className="border-b border-gray-300 last:border-b-0">
-                <td className="py-2 px-1 text-center">{index + 1}</td>
-                <td className="py-2 px-1">{item.description}</td>
-                <td className="py-2 px-1 text-right">{item.quantity.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
-                <td className="py-2 px-1 text-center">{item.unit}</td>
-                <td className="py-2 px-1 text-right">{formatCurrency(item.unitPrice)}</td>
-                <td className="py-2 px-1 text-right">{formatCurrency(item.quantity * item.unitPrice)}</td>
+                <td className="py-2 px-1 text-center align-top">{index + 1}</td>
+                
+                {/* CAMBIO 2: break-words y whitespace-pre-wrap */}
+                <td className="py-2 px-1 break-words whitespace-pre-wrap align-top">
+                    {/* OPCIÓN A: Si solo es texto plano (lo que tienes ahora) */}
+                    {item.description}
+
+                    {/* OPCIÓN B: Si quieres que renderice HTML/Imágenes/Links (como hablamos en el paso anterior) 
+                      Usa esto EN LUGAR de {item.description}:
+                      
+                      <div dangerouslySetInnerHTML={{ __html: item.description }} />
+                    */}
+                </td>
+
+                <td className="py-2 px-1 text-right align-top">{item.quantity.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
+                <td className="py-2 px-1 text-center align-top">{item.unit}</td>
+                <td className="py-2 px-1 text-right align-top">{formatCurrency(item.unitPrice)}</td>
+                <td className="py-2 px-1 text-right align-top">{formatCurrency(item.quantity * item.unitPrice)}</td>
               </tr>
             ))}
           </tbody>

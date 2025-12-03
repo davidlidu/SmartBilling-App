@@ -98,7 +98,7 @@ const DashboardPage: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <StatCard 
-          title="Total Facturas" 
+          title="Cantidad Facturas" 
           value={totalInvoices} 
           icon={<FileText size={24} className="text-blue-500" />} 
           color="border-blue-500"
@@ -112,7 +112,7 @@ const DashboardPage: React.FC = () => {
           linkTo="/clients"
         />
         <StatCard 
-          title="Ingresos Totales" 
+          title="Valor Facturado Total" 
           value={formatCurrency(totalRevenue)} 
           icon={<DollarSign size={24} className="text-yellow-500" />} 
           color="border-yellow-500"

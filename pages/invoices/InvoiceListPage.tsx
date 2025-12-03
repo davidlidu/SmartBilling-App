@@ -146,7 +146,7 @@ const InvoiceListPage: React.FC = () => {
                         <Eye size={18} />
                     </Link>
 
-                    {/* Descargar PDF (Abre pestaña nueva y activa la autodescarga) */}
+                    {/* Descargar PDF (Abre pestaña nueva y activa la autodescarga) 
                     <Link
                       to={`/invoices/${invoice.id}/view?download=true`} 
                       className="text-green-600 hover:text-green-800 p-1"
@@ -154,7 +154,7 @@ const InvoiceListPage: React.FC = () => {
                       target="_blank" 
                     >
                         <Download size={18} />
-                    </Link>
+                    </Link>*/}
 
                     <Link to={`/invoices/${invoice.id}/edit`} className="text-primary-dark hover:text-primary p-1" title="Editar Factura">
                       <Edit3 size={18} />

@@ -32,32 +32,55 @@ const ClientListPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Cargamos TODO: Clientes, Facturas y Pagos al tiempo (Parallel fetching)
+      // 1. Cargar todo en paralelo
       const [clientsData, invoicesData, paymentsData] = await Promise.all([
         getClients(),
         getInvoices(),
-        getAllPayments().catch(() => []) // Si falla pagos, retorna array vacío para no romper todo
+        getAllPayments().catch(err => {
+            console.warn("Error cargando pagos:", err);
+            return [];
+        }) 
       ]);
+
+      // DEBUG: Para ver en la consola (F12) qué está llegando realmente
+      console.log(`Datos cargados -> Clientes: ${clientsData.length}, Facturas: ${invoicesData.length}, Pagos: ${paymentsData.length}`);
+      if (paymentsData.length > 0) {
+        console.log("Ejemplo de pago (revisar campo clientId):", paymentsData[0]);
+      }
 
       setClients(clientsData);
 
-      // 2. Calculamos el saldo de cada cliente
+      // 2. Calcular Saldos
       const newBalances: Record<string, number> = {};
 
       clientsData.forEach(client => {
-        // A. Sumar todas las facturas de este cliente
-        const clientInvoices = invoicesData.filter(inv => inv.clientId === client.id);
+        const cId = String(client.id); // Forzamos ID del cliente a Texto
+
+        // A. Calcular Facturado
+        const clientInvoices = invoicesData.filter(inv => String(inv.clientId) === cId);
         const totalInvoiced = clientInvoices.reduce((sum, inv) => sum + calculateInvoiceAmount(inv), 0);
 
-        // B. Sumar todos los pagos de este cliente
-        const clientPayments = paymentsData.filter(pay => pay.clientId === client.id);
-        const totalPaid = clientPayments.reduce((sum, pay) => {
-            // Soportamos 'amount', 'value' o 'amountPaid' por seguridad
-            const val = Number(pay.amount || (pay as any).value || (pay as any).amountPaid || 0);
+        // B. Calcular Pagado (CORRECCIÓN: Blindaje de tipos)
+        const clientPayments = paymentsData.filter((pay: any) => {
+            // A veces el backend manda 'client_id' en vez de 'clientId'. Revisamos ambos.
+            const pClientId = pay.clientId !== undefined ? pay.clientId : pay.client_id;
+            
+            // COMPARACIÓN SEGURA: Convertimos ambos a String antes de comparar
+            return String(pClientId) === cId;
+        });
+
+        const totalPaid = clientPayments.reduce((sum, pay: any) => {
+            // Aseguramos que el monto sea un número
+            const val = Number(pay.amount || pay.value || pay.amountPaid || 0);
             return sum + val;
         }, 0);
 
-        // C. Saldo = Facturado - Pagado
+        // DEBUG: Si un cliente tiene pagos, mostrar en consola para verificar matemática
+        // if (totalPaid > 0) {
+        //    console.log(`Cliente ${client.name} (ID: ${cId}) -> Facturado: ${totalInvoiced} - Pagado: ${totalPaid} = Saldo: ${totalInvoiced - totalPaid}`);
+        // }
+
+        // C. Saldo Final
         newBalances[client.id] = totalInvoiced - totalPaid;
       });
 
