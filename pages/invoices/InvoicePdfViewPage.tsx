@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom'; // Importamos useSearchParams aquí
 import { Invoice, Client, SenderDetails } from '../../types';
 import { getInvoiceById } from '../../services/invoiceService';
 import { getClientById } from '../../services/clientService'; 
@@ -10,12 +10,15 @@ import { formatCurrency, formatDateForDisplay } from '../../utils/formatting';
 import { generatePdfFromElement } from '../../services/pdfService';
 import { Download, ArrowLeft } from 'lucide-react';
 
-const [searchParams] = useSearchParams();
-const autoDownload = searchParams.get('download');
-
 const InvoicePdfViewPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  
+  // --- CORRECCIÓN: Hooks movidos ADENTRO del componente ---
+  const [searchParams] = useSearchParams();
+  const autoDownload = searchParams.get('download'); 
+  // --------------------------------------------------------
+
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [configuredSender, setConfiguredSender] = useState<SenderDetails>(DEFAULT_SENDER_DETAILS);
@@ -67,12 +70,18 @@ const InvoicePdfViewPage: React.FC = () => {
   }, [fetchData]);
 
   const handleGeneratePdf = async (quality: 'high' | 'low' = 'high') => {
-    if (!invoice) return;
+    if (!invoice || !client) return; // Aseguramos que client exista también
     setIsGeneratingPdf(true);
     try {
-      // Filename includes "Borrador" if low quality or just Invoice number
       const suffix = quality === 'low' ? '-Web' : '';
-      await generatePdfFromElement('invoice-pdf-content', `Cuenta de Cobro-${invoice.invoiceNumber}${suffix} ${invoice.client.name}.pdf`, quality);
+      // Usamos client.name con seguridad (usando optional chaining o el estado client)
+      const clientName = client?.name || invoice.client?.name || 'Cliente';
+      
+      await generatePdfFromElement(
+        'invoice-pdf-content', 
+        `Cuenta de Cobro-${invoice.invoiceNumber}${suffix} ${clientName}.pdf`, 
+        quality
+      );
     } catch(e) {
         console.error("Error en la generación del PDF:", e);
     } finally {
@@ -80,17 +89,21 @@ const InvoicePdfViewPage: React.FC = () => {
     }
   };
   
+  // Efecto para la autodescarga
   useEffect(() => {
-    const queryParams = new URLSearchParams(location.search);
-    const shouldDownload = queryParams.get('download') === 'true';
+    const shouldDownload = autoDownload === 'true';
 
     // Wait for data to load, then trigger download if requested
     if (shouldDownload && !isLoading && !error && invoice && !isGeneratingPdf && !hasTriggeredDownload) {
-        // We use 'low' quality for the auto-download action to make it faster/smaller
-        handleGeneratePdf('high');
-        setHasTriggeredDownload(true);
+        // Usamos un pequeño timeout para asegurar que el DOM se pintó
+        const timer = setTimeout(() => {
+             handleGeneratePdf('high');
+             setHasTriggeredDownload(true);
+        }, 800);
+        
+        return () => clearTimeout(timer);
     }
-  }, [location.search, isLoading, error, invoice, isGeneratingPdf, hasTriggeredDownload]);
+  }, [autoDownload, isLoading, error, invoice, isGeneratingPdf, hasTriggeredDownload]);
 
 
   if (isLoading) {
@@ -131,7 +144,6 @@ const InvoicePdfViewPage: React.FC = () => {
             </Link>
             
             <div className="flex gap-2">
-
                 <button
                     onClick={() => handleGeneratePdf('high')}
                     disabled={isGeneratingPdf}

@@ -1,28 +1,70 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Client } from '../../types';
+import { Client, Invoice, Payment } from '../../types'; // Importamos tipos necesarios
 import { getClients, deleteClient as apiDeleteClient } from '../../services/clientService';
+import { getInvoices } from '../../services/invoiceService'; // Importar servicio facturas
+import { getAllPayments } from '../../services/paymentService'; // Importar servicio pagos
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Modal from '../../components/Modal';
 import { PlusCircle, Edit3, Trash2, Search, Users, DollarSign } from 'lucide-react';
 import PaymentManager from '../../components/PaymentManager';
+import { formatCurrency } from '../../utils/formatting'; // Importar formateador
 
 const ClientListPage: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
+  // Estado para guardar el saldo calculado de cada cliente: { "id_cliente": 100000 }
+  const [balances, setBalances] = useState<Record<string, number>>({});
+  
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [clientForPayments, setClientForPayments] = useState<Client | null>(null);
 
-  const fetchClients = useCallback(async () => {
+  // Función auxiliar para calcular totales de facturas
+  const calculateInvoiceAmount = (inv: any) => {
+    if (inv.totalAmount) return parseFloat(inv.totalAmount);
+    if (inv.lineItems) return inv.lineItems.reduce((s: number, i: any) => s + (i.quantity * i.unitPrice), 0);
+    return 0;
+  };
+
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getClients();
-      setClients(data);
-    } catch (err) {
-      setError('Error al cargar los clientes. Por favor, inténtelo de nuevo.');
+      // 1. Cargamos TODO: Clientes, Facturas y Pagos al tiempo (Parallel fetching)
+      const [clientsData, invoicesData, paymentsData] = await Promise.all([
+        getClients(),
+        getInvoices(),
+        getAllPayments().catch(() => []) // Si falla pagos, retorna array vacío para no romper todo
+      ]);
+
+      setClients(clientsData);
+
+      // 2. Calculamos el saldo de cada cliente
+      const newBalances: Record<string, number> = {};
+
+      clientsData.forEach(client => {
+        // A. Sumar todas las facturas de este cliente
+        const clientInvoices = invoicesData.filter(inv => inv.clientId === client.id);
+        const totalInvoiced = clientInvoices.reduce((sum, inv) => sum + calculateInvoiceAmount(inv), 0);
+
+        // B. Sumar todos los pagos de este cliente
+        const clientPayments = paymentsData.filter(pay => pay.clientId === client.id);
+        const totalPaid = clientPayments.reduce((sum, pay) => {
+            // Soportamos 'amount', 'value' o 'amountPaid' por seguridad
+            const val = Number(pay.amount || (pay as any).value || (pay as any).amountPaid || 0);
+            return sum + val;
+        }, 0);
+
+        // C. Saldo = Facturado - Pagado
+        newBalances[client.id] = totalInvoiced - totalPaid;
+      });
+
+      setBalances(newBalances);
+
+    } catch (err: any) {
+      setError('Error al cargar los datos. Por favor, inténtelo de nuevo.');
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -30,15 +72,15 @@ const ClientListPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchClients();
-  }, [fetchClients]);
+    fetchData();
+  }, [fetchData]);
 
   const handleDeleteClient = async () => {
     if (!clientToDelete) return;
     try {
       await apiDeleteClient(clientToDelete.id);
       setClients(prevClients => prevClients.filter(c => c.id !== clientToDelete.id));
-      setClientToDelete(null); // Close modal
+      setClientToDelete(null); 
     } catch (err: any) {
       setError(err.message || `Error al eliminar el cliente ${clientToDelete.name}.`);
       console.error(err);
@@ -89,7 +131,6 @@ const ClientListPage: React.FC = () => {
          <div className="text-center py-10 bg-white rounded-lg shadow">
             <Users size={48} className="mx-auto text-gray-400 mb-4" />
             <p className="text-gray-600 text-xl">No se encontraron clientes.</p>
-            <p className="text-gray-500">Intenta ajustar tu búsqueda o agrega un nuevo cliente.</p>
         </div>
       ) : (
       <div className="bg-white shadow-lg rounded-lg overflow-x-auto">
@@ -98,18 +139,30 @@ const ClientListPage: React.FC = () => {
             <tr>
               <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Nombre</th>
               <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">NIT/CC</th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ciudad</th>
               <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Teléfono</th>
+              {/* Nueva Columna de Saldo */}
+              <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Saldo Pendiente</th>
               <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {filteredClients.map(client => (
+            {filteredClients.map(client => {
+              const balance = balances[client.id] || 0;
+              // Determinamos el color: Rojo si debe (>0), Verde si está al día (<=0)
+              // Nota: Asumimos que balance positivo = Deuda. Si tu lógica es al revés, invierte los colores.
+              const balanceColor = balance > 100 ? 'text-red-600 font-bold' : 'text-green-600 font-medium';
+
+              return (
               <tr key={client.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{client.name}</td>
                 <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{client.nitOrCc}</td>
-                <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{client.city}</td>
                 <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{client.phone}</td>
+                
+                {/* Celda del Saldo Calculado */}
+                <td className={`px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap ${balanceColor}`}>
+                    {formatCurrency(balance)}
+                </td>
+
                 <td className="px-5 py-4 border-b border-gray-200 text-sm">
                   <div className="flex space-x-2">
                     <button 
@@ -128,7 +181,7 @@ const ClientListPage: React.FC = () => {
                   </div>
                 </td>
               </tr>
-            ))}
+            )})}
           </tbody>
         </table>
       </div>
@@ -138,11 +191,20 @@ const ClientListPage: React.FC = () => {
       {clientForPayments && (
         <Modal
             isOpen={!!clientForPayments}
-            onClose={() => setClientForPayments(null)}
+            onClose={() => {
+                setClientForPayments(null);
+                fetchData(); // Recargamos datos al cerrar el modal para actualizar el saldo si hubo pagos
+            }}
             title={`Gestión de Pagos: ${clientForPayments.name}`}
             size="2xl"
         >
-            <PaymentManager client={clientForPayments} onClose={() => setClientForPayments(null)} />
+            <PaymentManager 
+                client={clientForPayments} 
+                onClose={() => {
+                    setClientForPayments(null);
+                    fetchData();
+                }} 
+            />
         </Modal>
       )}
 

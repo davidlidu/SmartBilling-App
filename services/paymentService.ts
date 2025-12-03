@@ -13,6 +13,12 @@ interface PaymentInputData {
   proofUrl?: string | null; // URL of the proof image (if any)
 }
 
+export const getAllPayments = async (): Promise<Payment[]> => {
+  // Ajusta la URL según tu backend. Normalmente sería GET /payments
+  const response = await fetch(`${API_BASE_URL}/payments`); 
+  return handleResponse<Payment[]>(response);
+};
+
 const handleResponse = async <T>(response: Response): Promise<T> => {
   if (!response.ok) {
     let errorData = { message: `Error ${response.status}: ${response.statusText}`, detail: '' };

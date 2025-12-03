@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Invoice, Client, LineItem, SenderDetails } from '../../types'; // Added SenderDetails
+import { Invoice, Client, LineItem, SenderDetails } from '../../types'; 
 import { getInvoiceById, createInvoice, updateInvoice, getNextInvoiceNumber } from '../../services/invoiceService';
 import { getClients } from '../../services/clientService';
 import { getSettings } from '../../services/settingsService'; 
@@ -20,8 +20,8 @@ const InvoiceFormPage: React.FC = () => {
     notes: '', 
   });
   const [clients, setClients] = useState<Client[]>([]);
-  const [isLoading, setIsLoading] = useState(false); // For submit button
-  const [isPageLoading, setIsPageLoading] = useState(true); // For initial data load
+  const [isLoading, setIsLoading] = useState(false); 
+  const [isPageLoading, setIsPageLoading] = useState(true); 
   const [error, setError] = useState<string | null>(null);
   const isEditing = Boolean(id);
 
@@ -62,7 +62,6 @@ const InvoiceFormPage: React.FC = () => {
         setInvoice(prev => ({ 
           ...prev, 
           invoiceNumber: nextInvNum,
-          // Ensure new line items also get a default unit from the options if DEFAULT_UNIT is not in options
           lineItems: [{ id: String(Date.now()), description: '', quantity: 1, unit: lineItemUnitOptions.includes(DEFAULT_UNIT) ? DEFAULT_UNIT : lineItemUnitOptions[0], unitPrice: 0 }],
           notes: appSettings?.bankAccountInfo || DEFAULT_SENDER_DETAILS.bankAccountInfo 
         }));
@@ -136,14 +135,12 @@ const InvoiceFormPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Ensure all required fields are present, especially for create
       const payload: Omit<Invoice, 'id' | 'client'> = {
         invoiceNumber: invoice.invoiceNumber || '',
         date: invoice.date || formatDateForInput(new Date()),
         clientId: invoice.clientId,
         lineItems: invoice.lineItems,
         notes: invoice.notes || '',
-        // totalAmount will be calculated by backend
       };
 
       if (isEditing && id) {
@@ -164,14 +161,12 @@ const InvoiceFormPage: React.FC = () => {
     return <div className="flex justify-center items-center h-64"><LoadingSpinner size={12} /></div>;
   }
 
-  // Show critical error prominently if data load failed for a new invoice (e.g. clients not loaded)
   if (error && !isEditing && clients.length === 0 && !isPageLoading) { 
       return <div className="text-red-500 bg-red-100 p-4 rounded-md">{error} <Link to="/invoices" className="underline ml-2">Volver al listado</Link></div>;
   }
 
-
   return (
-    <div className="container mx-auto">
+    <div className="container mx-auto pb-10">
       <div className="flex items-center mb-6">
          <Link to="/invoices" className="text-primary hover:text-primary-dark p-2 rounded-full hover:bg-primary-light/10">
             <ArrowLeft size={24} />
@@ -232,21 +227,25 @@ const InvoiceFormPage: React.FC = () => {
         <div className="space-y-4">
           <h3 className="text-xl font-semibold text-gray-700 border-b pb-2">Ítems</h3>
           {(invoice.lineItems || []).map((item, index) => (
-            <div key={item.id || index} className="grid grid-cols-12 gap-3 items-center p-3 bg-gray-50 rounded-md">
+            <div key={item.id || index} className="grid grid-cols-12 gap-3 items-start p-4 bg-gray-50 rounded-md border border-gray-200">
+              
+              {/* CAMBIO: Input ahora es Textarea y ocupa más espacio vertical */}
               <div className="col-span-12 md:col-span-5">
-                 <label htmlFor={`description-${index}`} className="text-xs text-gray-500 sr-only">Descripción</label>
-                <input
-                  type="text"
+                 <label htmlFor={`description-${index}`} className="block text-xs font-medium text-gray-500 mb-1">Descripción (Texto/HTML)</label>
+                <textarea
                   id={`description-${index}`}
-                  placeholder="Descripción del ítem"
+                  placeholder="Descripción del ítem..."
                   value={item.description}
                   onChange={(e) => handleLineItemChange(index, 'description', e.target.value)}
                   required
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary-light focus:border-primary-light"
+                  rows={3}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary-light focus:border-primary-light resize-y text-sm"
                 />
+                <p className="text-[10px] text-gray-400 mt-1">Soporta texto largo y URLs.</p>
               </div>
+
               <div className="col-span-4 md:col-span-2">
-                <label htmlFor={`quantity-${index}`} className="text-xs text-gray-500 sr-only">Cantidad</label>
+                <label htmlFor={`quantity-${index}`} className="block text-xs font-medium text-gray-500 mb-1">Cantidad</label>
                 <input
                   type="number"
                   id={`quantity-${index}`}
@@ -256,17 +255,17 @@ const InvoiceFormPage: React.FC = () => {
                   required
                   min="0"
                   step="any"
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary-light focus:border-primary-light"
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary-light focus:border-primary-light h-[42px]"
                 />
               </div>
                <div className="col-span-4 md:col-span-2">
-                <label htmlFor={`unit-${index}`} className="text-xs text-gray-500 sr-only">Unidad</label>
+                <label htmlFor={`unit-${index}`} className="block text-xs font-medium text-gray-500 mb-1">Unidad</label>
                 <select
                   id={`unit-${index}`}
                   value={item.unit}
                   onChange={(e) => handleLineItemChange(index, 'unit', e.target.value)}
                   required
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary-light focus:border-primary-light bg-white"
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary-light focus:border-primary-light bg-white h-[42px]"
                 >
                   {lineItemUnitOptions.map(option => (
                     <option key={option} value={option}>{option}</option>
@@ -274,7 +273,7 @@ const InvoiceFormPage: React.FC = () => {
                 </select>
               </div>
               <div className="col-span-4 md:col-span-2">
-                <label htmlFor={`unitPrice-${index}`} className="text-xs text-gray-500 sr-only">Precio Unitario</label>
+                <label htmlFor={`unitPrice-${index}`} className="block text-xs font-medium text-gray-500 mb-1">Precio Unit.</label>
                 <input
                   type="number"
                   id={`unitPrice-${index}`}
@@ -284,18 +283,17 @@ const InvoiceFormPage: React.FC = () => {
                   required
                   min="0"
                   step="any"
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary-light focus:border-primary-light"
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary-light focus:border-primary-light h-[42px]"
                 />
               </div>
-              <div className="col-span-12 md:col-span-1 flex justify-end md:justify-center items-end">
+              <div className="col-span-12 md:col-span-1 flex justify-end md:justify-center items-center h-full pt-6">
                 <button
                   type="button"
                   onClick={() => removeLineItem(index)}
-                  className="text-danger hover:text-red-700 p-2 rounded-full hover:bg-red-100 transition-colors"
+                  className="text-gray-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors"
                   title="Eliminar ítem"
-                  aria-label="Eliminar ítem"
                 >
-                  <Trash2 size={18} />
+                  <Trash2 size={20} />
                 </button>
               </div>
             </div>
@@ -334,7 +332,7 @@ const InvoiceFormPage: React.FC = () => {
         <div className="flex justify-end pt-6">
           <button
             type="submit"
-            disabled={isLoading || isPageLoading} // Disable if page is still loading initial data
+            disabled={isLoading || isPageLoading} 
             className="bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-6 rounded-lg shadow-md flex items-center transition-colors disabled:opacity-50"
           >
             <Save size={20} className="mr-2" />
