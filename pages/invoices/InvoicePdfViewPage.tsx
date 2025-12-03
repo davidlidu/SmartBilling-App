@@ -159,7 +159,7 @@ const InvoicePdfViewPage: React.FC = () => {
         {/* Header */}
         <div className="grid grid-cols-3 gap-4 mb-8 pb-4 border-b border-gray-300">
           <div className="col-span-2">
-            {configuredSender.logoUrl && <img src={configuredSender.logoUrl} alt="Logo Empresa" className="h-12 mb-2 object-contain max-w-full" />}
+            {configuredSender.logoUrl && <img src={configuredSender.logoUrl} alt="Logo Empresa" className="h-32 mb-2 object-contain max-w-full" />}
             {/* <h1 className="text-2xl font-bold text-gray-800">{configuredSender.name}</h1>
             <p className="text-gray-600">{configuredSender.nit}</p>
             <p className="text-gray-600">{configuredSender.type}</p> */}

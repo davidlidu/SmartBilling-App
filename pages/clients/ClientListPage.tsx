@@ -1,30 +1,31 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Client, Invoice, Payment } from '../../types'; // Importamos tipos necesarios
+import { Client } from '../../types';
 import { getClients, deleteClient as apiDeleteClient } from '../../services/clientService';
-import { getInvoices } from '../../services/invoiceService'; // Importar servicio facturas
-import { getAllPayments } from '../../services/paymentService'; // Importar servicio pagos
+import { getInvoices } from '../../services/invoiceService';
+// CAMBIO IMPORTANTE: Usamos la función específica por cliente que sabemos que funciona
+import { getPaymentsByClient } from '../../services/paymentService'; 
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Modal from '../../components/Modal';
 import { PlusCircle, Edit3, Trash2, Search, Users, DollarSign } from 'lucide-react';
 import PaymentManager from '../../components/PaymentManager';
-import { formatCurrency } from '../../utils/formatting'; // Importar formateador
+import { formatCurrency } from '../../utils/formatting';
 
 const ClientListPage: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
-  // Estado para guardar el saldo calculado de cada cliente: { "id_cliente": 100000 }
   const [balances, setBalances] = useState<Record<string, number>>({});
-  
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [clientForPayments, setClientForPayments] = useState<Client | null>(null);
 
-  // Función auxiliar para calcular totales de facturas
+  // Función para calcular total de una factura
   const calculateInvoiceAmount = (inv: any) => {
-    if (inv.totalAmount) return parseFloat(inv.totalAmount);
-    if (inv.lineItems) return inv.lineItems.reduce((s: number, i: any) => s + (i.quantity * i.unitPrice), 0);
+    if (inv.totalAmount !== undefined && inv.totalAmount !== null) return parseFloat(inv.totalAmount);
+    if (inv.lineItems && Array.isArray(inv.lineItems)) {
+        return inv.lineItems.reduce((s: number, i: any) => s + (i.quantity * i.unitPrice), 0);
+    }
     return 0;
   };
 
@@ -32,55 +33,54 @@ const ClientListPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Cargar todo en paralelo
-      const [clientsData, invoicesData, paymentsData] = await Promise.all([
+      // 1. Primero cargamos Clientes y Facturas
+      const [clientsData, invoicesData] = await Promise.all([
         getClients(),
         getInvoices(),
-        getAllPayments().catch(err => {
-            console.warn("Error cargando pagos:", err);
-            return [];
-        }) 
       ]);
-
-      // DEBUG: Para ver en la consola (F12) qué está llegando realmente
-      console.log(`Datos cargados -> Clientes: ${clientsData.length}, Facturas: ${invoicesData.length}, Pagos: ${paymentsData.length}`);
-      if (paymentsData.length > 0) {
-        console.log("Ejemplo de pago (revisar campo clientId):", paymentsData[0]);
-      }
 
       setClients(clientsData);
 
-      // 2. Calcular Saldos
+      // 2. ESTRATEGIA SEGURA: Cargar pagos por cada cliente
+      // Creamos una lista de peticiones (una por cliente)
+      const paymentsPromises = clientsData.map(client => 
+        getPaymentsByClient(client.id)
+            .catch(err => {
+                console.warn(`Error cargando pagos para ${client.name}`, err);
+                return []; // Si falla uno, retornamos array vacío para no romper todo
+            })
+      );
+
+      // Ejecutamos todas las peticiones en paralelo (rápido)
+      const paymentsResults = await Promise.all(paymentsPromises);
+
+      // 3. Calcular Saldos
       const newBalances: Record<string, number> = {};
 
-      clientsData.forEach(client => {
-        const cId = String(client.id); // Forzamos ID del cliente a Texto
+      clientsData.forEach((client, index) => {
+        const cId = String(client.id);
 
-        // A. Calcular Facturado
+        // A. Sumar Facturas
         const clientInvoices = invoicesData.filter(inv => String(inv.clientId) === cId);
         const totalInvoiced = clientInvoices.reduce((sum, inv) => sum + calculateInvoiceAmount(inv), 0);
 
-        // B. Calcular Pagado (CORRECCIÓN: Blindaje de tipos)
-        const clientPayments = paymentsData.filter((pay: any) => {
-            // A veces el backend manda 'client_id' en vez de 'clientId'. Revisamos ambos.
-            const pClientId = pay.clientId !== undefined ? pay.clientId : pay.client_id;
-            
-            // COMPARACIÓN SEGURA: Convertimos ambos a String antes de comparar
-            return String(pClientId) === cId;
-        });
-
+        // B. Sumar Pagos
+        // paymentsResults[index] contiene los pagos del cliente en la misma posición
+        const clientPayments = paymentsResults[index] || []; 
+        
         const totalPaid = clientPayments.reduce((sum, pay: any) => {
-            // Aseguramos que el monto sea un número
-            const val = Number(pay.amount || pay.value || pay.amountPaid || 0);
-            return sum + val;
+            // Limpiamos el valor por si viene como string con comas o texto
+            let val = pay.amount || pay.value || pay.amountPaid || 0;
+            if (typeof val === 'string') {
+                val = parseFloat(val.replace(/,/g, '')); // Quitamos comas si existen
+            }
+            return sum + Number(val);
         }, 0);
 
-        // DEBUG: Si un cliente tiene pagos, mostrar en consola para verificar matemática
-        // if (totalPaid > 0) {
-        //    console.log(`Cliente ${client.name} (ID: ${cId}) -> Facturado: ${totalInvoiced} - Pagado: ${totalPaid} = Saldo: ${totalInvoiced - totalPaid}`);
-        // }
+        // DEBUG: Descomenta esto si quieres ver los números en la consola
+        // console.log(`Cliente: ${client.name} | Facturado: ${totalInvoiced} | Pagado: ${totalPaid}`);
 
-        // C. Saldo Final
+        // C. Saldo = Facturado - Pagado
         newBalances[client.id] = totalInvoiced - totalPaid;
       });
 
@@ -163,7 +163,6 @@ const ClientListPage: React.FC = () => {
               <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Nombre</th>
               <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">NIT/CC</th>
               <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Teléfono</th>
-              {/* Nueva Columna de Saldo */}
               <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Saldo Pendiente</th>
               <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Acciones</th>
             </tr>
@@ -171,9 +170,8 @@ const ClientListPage: React.FC = () => {
           <tbody>
             {filteredClients.map(client => {
               const balance = balances[client.id] || 0;
-              // Determinamos el color: Rojo si debe (>0), Verde si está al día (<=0)
-              // Nota: Asumimos que balance positivo = Deuda. Si tu lógica es al revés, invierte los colores.
-              const balanceColor = balance > 100 ? 'text-red-600 font-bold' : 'text-green-600 font-medium';
+              // Si el saldo es mayor a $1000, lo mostramos rojo. Si es menor o cero (a favor), verde.
+              const balanceColor = balance > 1000 ? 'text-red-600 font-bold' : 'text-green-600 font-medium';
 
               return (
               <tr key={client.id} className="hover:bg-gray-50 transition-colors">
@@ -181,7 +179,7 @@ const ClientListPage: React.FC = () => {
                 <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{client.nitOrCc}</td>
                 <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{client.phone}</td>
                 
-                {/* Celda del Saldo Calculado */}
+                {/* Columna de Saldo */}
                 <td className={`px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap ${balanceColor}`}>
                     {formatCurrency(balance)}
                 </td>
@@ -210,13 +208,12 @@ const ClientListPage: React.FC = () => {
       </div>
       )}
 
-      {/* Payment Modal */}
       {clientForPayments && (
         <Modal
             isOpen={!!clientForPayments}
             onClose={() => {
                 setClientForPayments(null);
-                fetchData(); // Recargamos datos al cerrar el modal para actualizar el saldo si hubo pagos
+                fetchData(); // Recargamos para actualizar el saldo al cerrar
             }}
             title={`Gestión de Pagos: ${clientForPayments.name}`}
             size="2xl"
@@ -231,7 +228,6 @@ const ClientListPage: React.FC = () => {
         </Modal>
       )}
 
-      {/* Delete Confirmation Modal */}
       <Modal
         isOpen={!!clientToDelete}
         onClose={() => setClientToDelete(null)}
