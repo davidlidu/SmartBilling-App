@@ -77,7 +77,6 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({ client }) => {
       setError(err.message || 'Error al registrar el pago.');
     } finally {
       setIsSubmitting(false);
-      // Auto clear success message
       setTimeout(() => setSuccessMsg(null), 3000);
     }
   };
@@ -86,13 +85,14 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({ client }) => {
     if (window.confirm('¿Está seguro que desea eliminar este pago?')) {
         try {
             await deletePayment(paymentId);
-            fetchPayments(); // Refresh list
+            fetchPayments(); 
         } catch (err: any) {
             setError(err.message || 'Error al eliminar el pago.');
         }
     }
   };
 
+  // Cálculo del total asegurando que amount sea número
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
 
   return (
@@ -109,7 +109,7 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({ client }) => {
         </div>
       )}
       
-      {/* New Payment Form */}
+      {/* Formulario de Nuevo Pago */}
       <form onSubmit={handleSubmit} className="p-5 bg-blue-50 rounded-lg border border-blue-100 shadow-sm space-y-4">
         <h4 className="text-lg font-bold text-gray-800 flex items-center">
             <PlusCircle size={20} className="mr-2 text-primary"/> 
@@ -172,7 +172,7 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({ client }) => {
         </div>
       </form>
 
-      {/* Payment History */}
+      {/* Historial de Pagos */}
       <div>
         <div className="flex justify-between items-center mb-3">
             <h4 className="text-lg font-bold text-gray-800">Historial de Pagos</h4>
@@ -204,7 +204,12 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({ client }) => {
                 {payments.map(p => (
                   <tr key={p.id} className="hover:bg-gray-50">
                     <td className="p-3 whitespace-nowrap text-gray-600">{formatDateForDisplay(p.date)}</td>
-                    <td className="p-3 whitespace-nowrap font-bold text-green-600">{formatCurrency(p.amount)}</td>
+                    
+                    {/* CORRECCIÓN PRINCIPAL AQUÍ: Usamos Number() */}
+                    <td className="p-3 whitespace-nowrap font-bold text-green-600">
+                        {formatCurrency(Number(p.amount))}
+                    </td>
+                    
                     <td className="p-3 whitespace-nowrap text-gray-600">{p.method}</td>
                     <td className="p-3 text-gray-600 max-w-xs truncate" title={p.notes}>{p.notes || '-'}</td>
                     <td className="p-3 text-center">

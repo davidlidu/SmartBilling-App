@@ -12,19 +12,33 @@ export const formatCurrency = (amount: number, currencySymbol: string = '$'): st
   return `${currencySymbol}${parts.join(',')}`;
 };
 
-// Formats a YYYY-MM-DD date string to DD/MM/YYYY for display
-export const formatDateForDisplay = (dateString: string): string => {
-  if (!dateString) return '';
+// En src/utils/formatting.ts
+
+export const formatDateForDisplay = (dateString: string | Date): string => {
+  if (!dateString) return 'N/A';
+  
   try {
-    const [year, month, day] = dateString.split('-');
-    if (year && month && day) {
-      return `${day}/${month}/${year}`;
+    const date = new Date(dateString);
+    
+    // Verifica si la fecha es inválida
+    if (isNaN(date.getTime())) {
+        return String(dateString); // Retorna el original si falla
     }
-    return dateString; // Fallback
-  } catch (e) {
-    return dateString; // Fallback
+
+    // Retorna formato local: día/mes/año (ej: 20/11/2025)
+    // 'es-ES' fuerza el formato DD/MM/AAAA usado en España y Latam
+    return date.toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  } catch (error) {
+    console.error("Error formatting date", error);
+    return String(dateString);
   }
 };
+
+// ... el resto de tus funciones como formatCurrency ...
 
 // Formats a Date object to YYYY-MM-DD for input[type=date]
 export const formatDateForInput = (date: Date): string => {

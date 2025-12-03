@@ -39,8 +39,17 @@ const InvoiceListPage: React.FC = () => {
     return clients.find(c => c.id === clientId)?.name || 'N/A';
   };
 
-  const calculateInvoiceTotal = (invoice: Invoice): number => {
-    return invoice.lineItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  // Lógica segura para calcular el total
+  const calculateInvoiceTotal = (invoice: any): number => {
+    // 1. Si el backend ya manda el total, úsalo
+    if (invoice.totalAmount !== undefined && invoice.totalAmount !== null) {
+        return parseFloat(invoice.totalAmount);
+    }
+    // 2. Si no, intenta sumarlo de los items (si existen)
+    if (invoice.lineItems && Array.isArray(invoice.lineItems)) {
+        return invoice.lineItems.reduce((sum: number, item: any) => sum + (item.quantity * item.unitPrice), 0);
+    }
+    return 0;
   };
 
   const handleDeleteInvoice = async () => {
@@ -61,7 +70,6 @@ const InvoiceListPage: React.FC = () => {
     const searchTermLower = searchTerm.toLowerCase();
     return clientName.includes(searchTermLower) || invoiceNumber.includes(searchTermLower);
   });
-
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-64"><LoadingSpinner size={12} /></div>;
@@ -126,10 +134,10 @@ const InvoiceListPage: React.FC = () => {
                 </td>
                 <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{getClientName(invoice.clientId)}</td>
                 <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{formatDateForDisplay(invoice.date)}</td>
-                <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{formatCurrency(calculateInvoiceTotal(invoice))}</td>
+                <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800 font-medium">{formatCurrency(calculateInvoiceTotal(invoice))}</td>
                 <td className="px-5 py-4 border-b border-gray-200 text-sm">
                   <div className="flex space-x-3">
-                    {/* View Icon - Goes to detailed view */}
+                    {/* Ver Factura */}
                     <Link 
                         to={`/invoices/${invoice.id}/view`} 
                         className="text-gray-600 hover:text-blue-600 p-1" 
@@ -138,12 +146,12 @@ const InvoiceListPage: React.FC = () => {
                         <Eye size={18} />
                     </Link>
 
-                    {/* Download Icon - Triggers direct compressed download via query param */}
+                    {/* Descargar PDF (Abre pestaña nueva y activa la autodescarga) */}
                     <Link
-                      to={`/invoices/${invoice.id}/view?download=true`} // Agregamos ?download=true
+                      to={`/invoices/${invoice.id}/view?download=true`} 
                       className="text-green-600 hover:text-green-800 p-1"
                       title="Descargar PDF"
-                      target="_blank" // Opcional: abre en pestaña nueva para no perder la lista
+                      target="_blank" 
                     >
                         <Download size={18} />
                     </Link>
