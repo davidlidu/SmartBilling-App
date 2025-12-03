@@ -139,15 +139,14 @@ const InvoiceListPage: React.FC = () => {
                     </Link>
 
                     {/* Download Icon - Triggers direct compressed download via query param */}
-                    <a 
-                        href={`#/invoices/${invoice.id}/view?download=true`} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="text-green-600 hover:text-green-800 p-1" 
-                        title="Descargar PDF (Comprimido/Rápido)"
+                    <Link
+                      to={`/invoices/${invoice.id}/view?download=true`} // Agregamos ?download=true
+                      className="text-green-600 hover:text-green-800 p-1"
+                      title="Descargar PDF"
+                      target="_blank" // Opcional: abre en pestaña nueva para no perder la lista
                     >
                         <Download size={18} />
-                    </a>
+                    </Link>
 
                     <Link to={`/invoices/${invoice.id}/edit`} className="text-primary-dark hover:text-primary p-1" title="Editar Factura">
                       <Edit3 size={18} />

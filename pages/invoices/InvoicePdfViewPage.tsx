@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link, useLocation } from 'react-router-dom';
+import { useParams, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Invoice, Client, SenderDetails } from '../../types';
 import { getInvoiceById } from '../../services/invoiceService';
 import { getClientById } from '../../services/clientService'; 
@@ -9,6 +9,9 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import { formatCurrency, formatDateForDisplay } from '../../utils/formatting';
 import { generatePdfFromElement } from '../../services/pdfService';
 import { Download, ArrowLeft } from 'lucide-react';
+
+const [searchParams] = useSearchParams();
+const autoDownload = searchParams.get('download');
 
 const InvoicePdfViewPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -69,7 +72,7 @@ const InvoicePdfViewPage: React.FC = () => {
     try {
       // Filename includes "Borrador" if low quality or just Invoice number
       const suffix = quality === 'low' ? '-Web' : '';
-      await generatePdfFromElement('invoice-pdf-content', `Factura-${invoice.invoiceNumber}${suffix}.pdf`, quality);
+      await generatePdfFromElement('invoice-pdf-content', `Cuenta de Cobro-${invoice.invoiceNumber}${suffix} ${invoice.client.name}.pdf`, quality);
     } catch(e) {
         console.error("Error en la generación del PDF:", e);
     } finally {
@@ -84,7 +87,7 @@ const InvoicePdfViewPage: React.FC = () => {
     // Wait for data to load, then trigger download if requested
     if (shouldDownload && !isLoading && !error && invoice && !isGeneratingPdf && !hasTriggeredDownload) {
         // We use 'low' quality for the auto-download action to make it faster/smaller
-        handleGeneratePdf('low');
+        handleGeneratePdf('high');
         setHasTriggeredDownload(true);
     }
   }, [location.search, isLoading, error, invoice, isGeneratingPdf, hasTriggeredDownload]);
@@ -128,14 +131,7 @@ const InvoicePdfViewPage: React.FC = () => {
             </Link>
             
             <div className="flex gap-2">
-                <button
-                    onClick={() => handleGeneratePdf('low')}
-                    disabled={isGeneratingPdf}
-                    className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md flex items-center transition-colors disabled:opacity-50 text-sm"
-                >
-                    {isGeneratingPdf ? <LoadingSpinner size={4} /> : <Download size={16} className="mr-2" />}
-                    PDF Web (Ligero)
-                </button>
+
                 <button
                     onClick={() => handleGeneratePdf('high')}
                     disabled={isGeneratingPdf}

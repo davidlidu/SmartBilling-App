@@ -1,12 +1,13 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, Users, PlusCircle, DollarSign, Edit } from 'lucide-react';
 import { getInvoices } from '../services/invoiceService';
 import { getClients } from '../services/clientService';
 import { formatCurrency } from '../utils/formatting';
-import { Invoice } from '../types'; // Added Invoice type import
+import { Invoice } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
+
+// ... (Los componentes StatCard y QuickAccessButton se quedan igual) ...
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode; color: string; linkTo?: string }> = ({ title, value, icon, color, linkTo }) => {
   const cardContent = (
@@ -35,7 +36,6 @@ const QuickAccessButton: React.FC<{ to: string; icon: React.ReactNode; label: st
   </Link>
 );
 
-
 const DashboardPage: React.FC = () => {
   const [totalInvoices, setTotalInvoices] = useState(0);
   const [totalClients, setTotalClients] = useState(0);
@@ -54,10 +54,23 @@ const DashboardPage: React.FC = () => {
         setTotalInvoices(invoicesData.length);
         setTotalClients(clientsData.length);
         
-        const revenue = invoicesData.reduce((sum, inv) => {
-          const invoiceTotal = inv.lineItems.reduce((itemSum, item) => itemSum + (item.quantity * item.unitPrice), 0);
-          return sum + invoiceTotal; // Correctly return the accumulated sum
-        }, 0); // Initialize sum with 0
+        // CORRECCIÓN AQUÍ:
+        // Usamos la propiedad totalAmount que viene del backend.
+        // Si no existe, usamos el fallback de sumar lineItems (por si acaso).
+        const revenue = invoicesData.reduce((sum, inv: any) => {
+          let invoiceTotal = 0;
+
+          if (inv.totalAmount !== undefined && inv.totalAmount !== null) {
+             // Opción A: El backend ya nos da el total
+             invoiceTotal = parseFloat(inv.totalAmount);
+          } else if (inv.lineItems && inv.lineItems.length > 0) {
+             // Opción B: Calculamos manualmente (solo si lineItems existen)
+             invoiceTotal = inv.lineItems.reduce((itemSum: number, item: any) => itemSum + (item.quantity * item.unitPrice), 0);
+          }
+
+          return sum + invoiceTotal;
+        }, 0);
+        
         setTotalRevenue(revenue);
 
       } catch (err) {
@@ -123,7 +136,7 @@ const DashboardPage: React.FC = () => {
           />
            <QuickAccessButton 
             to="/settings"
-            icon={<Edit size={20} />} // Using Edit icon for settings, could be Settings icon too
+            icon={<Edit size={20} />} 
             label="Configurar Plantilla"
             colorClass="bg-indigo-500 hover:bg-indigo-600"
           />
