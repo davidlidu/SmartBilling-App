@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Client } from '../../types';
 import { getClientById, createClient, updateClient } from '../../services/clientService';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { Save, ArrowLeft } from 'lucide-react';
+import { Save, ArrowLeft, User, CreditCard, Phone, MapPin, Building } from 'lucide-react';
 
 const ClientFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -63,96 +63,140 @@ const ClientFormPage: React.FC = () => {
   };
 
   if (isLoading && isEditing) {
-     return <div className="flex justify-center items-center h-64"><LoadingSpinner size={12} /></div>;
+    return <div className="flex justify-center items-center h-64"><LoadingSpinner size={12} /></div>;
   }
 
   if (error) {
-    return <div className="text-red-500 bg-red-100 p-4 rounded-md">{error}</div>;
+    return <div className="text-danger bg-danger-50 p-4 rounded-2xl border border-danger/20 font-medium">{error}</div>;
   }
 
   return (
-    <div className="container mx-auto">
+    <div className="container mx-auto max-w-3xl animate-fadeIn">
+      {/* Header */}
       <div className="flex items-center mb-6">
-        <Link to="/clients" className="text-primary hover:text-primary-dark p-2 rounded-full hover:bg-primary-light/10">
-            <ArrowLeft size={24} />
+        <Link to="/clients" className="text-secondary-400 hover:text-primary p-2 rounded-xl hover:bg-primary-50 transition-colors">
+          <ArrowLeft size={22} />
         </Link>
-        <h2 className="text-3xl font-semibold text-gray-700 ml-2">
-          {isEditing ? 'Editar Cliente' : 'Agregar Nuevo Cliente'}
-        </h2>
-      </div>
-      
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded-lg shadow-lg space-y-6">
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Nombre del Cliente</label>
-          <input
-            type="text"
-            name="name"
-            id="name"
-            value={client.name}
-            onChange={handleChange}
-            required
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
-          />
+        <div className="ml-3">
+          <h2 className="text-2xl font-bold text-secondary-800">
+            {isEditing ? 'Editar Cliente' : 'Agregar Nuevo Cliente'}
+          </h2>
+          <p className="text-sm text-secondary-400">Complete la información del cliente</p>
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Personal Info Card */}
+        <div className="bg-white p-6 rounded-2xl shadow-card border border-secondary-100">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="p-2 bg-primary-50 rounded-lg">
+              <User size={18} className="text-primary" />
+            </div>
+            <h3 className="text-base font-bold text-secondary-800">Información Personal</h3>
+          </div>
+
+          <div className="space-y-4">
             <div>
-              <label htmlFor="nitOrCc" className="block text-sm font-medium text-gray-700 mb-1">NIT / CC</label>
+              <label htmlFor="name" className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">Nombre del Cliente</label>
               <input
                 type="text"
-                name="nitOrCc"
-                id="nitOrCc"
-                value={client.nitOrCc}
+                name="name"
+                id="name"
+                value={client.name}
                 onChange={handleChange}
                 required
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+                className="w-full p-3 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
+                placeholder="Nombre completo o razón social"
               />
             </div>
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-              <input
-                type="tel"
-                name="phone"
-                id="phone"
-                value={client.phone}
-                onChange={handleChange}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
-              />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="nitOrCc" className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">NIT / CC</label>
+                <div className="relative">
+                  <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={16} />
+                  <input
+                    type="text"
+                    name="nitOrCc"
+                    id="nitOrCc"
+                    value={client.nitOrCc}
+                    onChange={handleChange}
+                    required
+                    className="w-full p-3 pl-10 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
+                    placeholder="Ej: 123456789-0"
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="phone" className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">Teléfono</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={16} />
+                  <input
+                    type="tel"
+                    name="phone"
+                    id="phone"
+                    value={client.phone}
+                    onChange={handleChange}
+                    className="w-full p-3 pl-10 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
+                    placeholder="Ej: +57 300 123 4567"
+                  />
+                </div>
+              </div>
             </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Location Card */}
+        <div className="bg-white p-6 rounded-2xl shadow-card border border-secondary-100">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="p-2 bg-emerald-50 rounded-lg">
+              <MapPin size={18} className="text-emerald-600" />
+            </div>
+            <h3 className="text-base font-bold text-secondary-800">Ubicación</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+              <label htmlFor="address" className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">Dirección</label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={16} />
                 <input
-                    type="text"
-                    name="address"
-                    id="address"
-                    value={client.address}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+                  type="text"
+                  name="address"
+                  id="address"
+                  value={client.address}
+                  onChange={handleChange}
+                  className="w-full p-3 pl-10 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
+                  placeholder="Ej: Calle 123 #45-67"
                 />
+              </div>
             </div>
             <div>
-                <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+              <label htmlFor="city" className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">Ciudad</label>
+              <div className="relative">
+                <Building className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={16} />
                 <input
-                    type="text"
-                    name="city"
-                    id="city"
-                    value={client.city}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+                  type="text"
+                  name="city"
+                  id="city"
+                  value={client.city}
+                  onChange={handleChange}
+                  className="w-full p-3 pl-10 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
+                  placeholder="Ej: Bogotá"
                 />
+              </div>
             </div>
+          </div>
         </div>
 
-        <div className="flex justify-end pt-4">
+        {/* Submit */}
+        <div className="flex justify-end pt-2">
           <button
             type="submit"
             disabled={isLoading}
-            className="bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-6 rounded-lg shadow-md flex items-center transition-colors disabled:opacity-50"
+            className="bg-gradient-to-r from-primary to-primary-700 hover:from-primary-600 hover:to-primary-800 text-white font-semibold py-3 px-8 rounded-xl shadow-lg hover:shadow-glow flex items-center transition-all disabled:opacity-50 text-sm"
           >
-            <Save size={20} className="mr-2" />
+            <Save size={18} className="mr-2" />
             {isLoading ? 'Guardando...' : (isEditing ? 'Actualizar Cliente' : 'Crear Cliente')}
           </button>
         </div>

@@ -6,4 +6,92 @@
 /* @tailwind components; */
 /* @tailwind utilities; */
 
-/* Add any custom global CSS below if needed */
+/* ===== Global Styles ===== */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== Custom Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ===== Glassmorphism Utility ===== */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-dark {
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ===== WYSIWYG Content Styling ===== */
+.wysiwyg-content {
+  line-height: 1.6;
+  word-break: break-word;
+}
+.wysiwyg-content p {
+  margin-bottom: 0.5em;
+}
+.wysiwyg-content ul,
+.wysiwyg-content ol {
+  padding-left: 1.5em;
+  margin-bottom: 0.5em;
+}
+.wysiwyg-content ul {
+  list-style-type: disc;
+}
+.wysiwyg-content ol {
+  list-style-type: decimal;
+}
+.wysiwyg-content li {
+  margin-bottom: 0.2em;
+}
+.wysiwyg-content a {
+  color: #6366f1;
+  text-decoration: underline;
+}
+.wysiwyg-content strong, .wysiwyg-content b {
+  font-weight: 700;
+}
+.wysiwyg-content em, .wysiwyg-content i {
+  font-style: italic;
+}
+
+/* ===== Animation Delays for Stagger ===== */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+
+/* ===== Smooth Focus for All Inputs ===== */
+input:focus, select:focus, textarea:focus {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+/* ===== Gradient Text Utility ===== */
+.text-gradient {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

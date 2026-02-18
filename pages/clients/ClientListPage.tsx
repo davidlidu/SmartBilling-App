@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import { Client } from '../../types';
 import { getClients, deleteClient as apiDeleteClient } from '../../services/clientService';
 import { getInvoices } from '../../services/invoiceService';
-// CAMBIO IMPORTANTE: Usamos la función específica por cliente que sabemos que funciona
-import { getPaymentsByClient } from '../../services/paymentService'; 
+import { getPaymentsByClient } from '../../services/paymentService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Modal from '../../components/Modal';
 import { PlusCircle, Edit3, Trash2, Search, Users, DollarSign } from 'lucide-react';
@@ -20,11 +19,10 @@ const ClientListPage: React.FC = () => {
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [clientForPayments, setClientForPayments] = useState<Client | null>(null);
 
-  // Función para calcular total de una factura
   const calculateInvoiceAmount = (inv: any) => {
     if (inv.totalAmount !== undefined && inv.totalAmount !== null) return parseFloat(inv.totalAmount);
     if (inv.lineItems && Array.isArray(inv.lineItems)) {
-        return inv.lineItems.reduce((s: number, i: any) => s + (i.quantity * i.unitPrice), 0);
+      return inv.lineItems.reduce((s: number, i: any) => s + (i.quantity * i.unitPrice), 0);
     }
     return 0;
   };
@@ -33,7 +31,6 @@ const ClientListPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Primero cargamos Clientes y Facturas
       const [clientsData, invoicesData] = await Promise.all([
         getClients(),
         getInvoices(),
@@ -41,46 +38,32 @@ const ClientListPage: React.FC = () => {
 
       setClients(clientsData);
 
-      // 2. ESTRATEGIA SEGURA: Cargar pagos por cada cliente
-      // Creamos una lista de peticiones (una por cliente)
-      const paymentsPromises = clientsData.map(client => 
+      const paymentsPromises = clientsData.map(client =>
         getPaymentsByClient(client.id)
-            .catch(err => {
-                console.warn(`Error cargando pagos para ${client.name}`, err);
-                return []; // Si falla uno, retornamos array vacío para no romper todo
-            })
+          .catch(err => {
+            console.warn(`Error cargando pagos para ${client.name}`, err);
+            return [];
+          })
       );
 
-      // Ejecutamos todas las peticiones en paralelo (rápido)
       const paymentsResults = await Promise.all(paymentsPromises);
 
-      // 3. Calcular Saldos
       const newBalances: Record<string, number> = {};
 
       clientsData.forEach((client, index) => {
         const cId = String(client.id);
-
-        // A. Sumar Facturas
         const clientInvoices = invoicesData.filter(inv => String(inv.clientId) === cId);
         const totalInvoiced = clientInvoices.reduce((sum, inv) => sum + calculateInvoiceAmount(inv), 0);
+        const clientPayments = paymentsResults[index] || [];
 
-        // B. Sumar Pagos
-        // paymentsResults[index] contiene los pagos del cliente en la misma posición
-        const clientPayments = paymentsResults[index] || []; 
-        
         const totalPaid = clientPayments.reduce((sum, pay: any) => {
-            // Limpiamos el valor por si viene como string con comas o texto
-            let val = pay.amount || pay.value || pay.amountPaid || 0;
-            if (typeof val === 'string') {
-                val = parseFloat(val.replace(/,/g, '')); // Quitamos comas si existen
-            }
-            return sum + Number(val);
+          let val = pay.amount || pay.value || pay.amountPaid || 0;
+          if (typeof val === 'string') {
+            val = parseFloat(val.replace(/,/g, ''));
+          }
+          return sum + Number(val);
         }, 0);
 
-        // DEBUG: Descomenta esto si quieres ver los números en la consola
-        // console.log(`Cliente: ${client.name} | Facturado: ${totalInvoiced} | Pagado: ${totalPaid}`);
-
-        // C. Saldo = Facturado - Pagado
         newBalances[client.id] = totalInvoiced - totalPaid;
       });
 
@@ -103,7 +86,7 @@ const ClientListPage: React.FC = () => {
     try {
       await apiDeleteClient(clientToDelete.id);
       setClients(prevClients => prevClients.filter(c => c.id !== clientToDelete.id));
-      setClientToDelete(null); 
+      setClientToDelete(null);
     } catch (err: any) {
       setError(err.message || `Error al eliminar el cliente ${clientToDelete.name}.`);
       console.error(err);
@@ -120,114 +103,139 @@ const ClientListPage: React.FC = () => {
   }
 
   if (error) {
-    return <div className="text-red-500 bg-red-100 p-4 rounded-md">{error}</div>;
+    return <div className="text-danger bg-danger-50 p-4 rounded-2xl border border-danger/20 font-medium">{error}</div>;
   }
 
   return (
-    <div className="container mx-auto space-y-6">
+    <div className="container mx-auto space-y-6 max-w-6xl animate-fadeIn">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-3xl font-semibold text-gray-700">Clientes</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-secondary-800">Clientes</h2>
+          <p className="text-sm text-secondary-400 mt-0.5">{clients.length} clientes registrados</p>
+        </div>
         <Link
           to="/clients/new"
-          className="bg-primary hover:bg-primary-dark text-white font-semibold py-2 px-4 rounded-lg shadow-md flex items-center transition-colors w-full sm:w-auto justify-center"
+          className="bg-gradient-to-r from-primary to-primary-700 hover:from-primary-600 hover:to-primary-800 text-white font-semibold py-2.5 px-5 rounded-xl shadow-lg hover:shadow-glow flex items-center transition-all w-full sm:w-auto justify-center text-sm"
         >
-          <PlusCircle size={20} className="mr-2" />
+          <PlusCircle size={18} className="mr-2" />
           Agregar Cliente
         </Link>
       </div>
 
-      <div className="bg-white p-4 rounded-lg shadow">
+      {/* Search */}
+      <div className="bg-white p-3 rounded-2xl shadow-card border border-secondary-100">
         <div className="relative">
           <input
             type="text"
             placeholder="Buscar clientes por nombre o NIT/CC..."
-            className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+            className="w-full p-3 pl-10 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             aria-label="Buscar clientes"
           />
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400" size={18} />
         </div>
       </div>
-      
+
+      {/* Table or Empty State */}
       {filteredClients.length === 0 && !isLoading ? (
-         <div className="text-center py-10 bg-white rounded-lg shadow">
-            <Users size={48} className="mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600 text-xl">No se encontraron clientes.</p>
+        <div className="text-center py-16 bg-white rounded-2xl shadow-card border border-secondary-100">
+          <div className="w-16 h-16 bg-secondary-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Users size={28} className="text-secondary-400" />
+          </div>
+          <p className="text-secondary-700 text-lg font-semibold">No se encontraron clientes</p>
+          <p className="text-secondary-400 text-sm mt-1">Ajusta tu búsqueda o agrega un nuevo cliente.</p>
         </div>
       ) : (
-      <div className="bg-white shadow-lg rounded-lg overflow-x-auto">
-        <table className="min-w-full leading-normal">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Nombre</th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">NIT/CC</th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Teléfono</th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Saldo Pendiente</th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredClients.map(client => {
-              const balance = balances[client.id] || 0;
-              // Si el saldo es mayor a $1000, lo mostramos rojo. Si es menor o cero (a favor), verde.
-              const balanceColor = balance > 1000 ? 'text-red-600 font-bold' : 'text-green-600 font-medium';
+        <div className="bg-white shadow-card rounded-2xl overflow-hidden border border-secondary-100">
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="bg-secondary-50 border-b border-secondary-200">
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-secondary-500 uppercase tracking-wider">Nombre</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-secondary-500 uppercase tracking-wider">NIT/CC</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-secondary-500 uppercase tracking-wider">Teléfono</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-secondary-500 uppercase tracking-wider">Saldo Pendiente</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-secondary-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-secondary-100">
+                {filteredClients.map(client => {
+                  const balance = balances[client.id] || 0;
+                  const isHighBalance = balance > 1000;
 
-              return (
-              <tr key={client.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{client.name}</td>
-                <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{client.nitOrCc}</td>
-                <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{client.phone}</td>
-                
-                {/* Columna de Saldo */}
-                <td className={`px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap ${balanceColor}`}>
-                    {formatCurrency(balance)}
-                </td>
+                  return (
+                    <tr key={client.id} className="hover:bg-primary-50/30 transition-colors group">
+                      <td className="px-5 py-4 text-sm whitespace-nowrap text-secondary-700 font-medium">{client.name}</td>
+                      <td className="px-5 py-4 text-sm whitespace-nowrap text-secondary-500">{client.nitOrCc}</td>
+                      <td className="px-5 py-4 text-sm whitespace-nowrap text-secondary-500">{client.phone}</td>
 
-                <td className="px-5 py-4 border-b border-gray-200 text-sm">
-                  <div className="flex space-x-2">
-                    <button 
-                        onClick={() => setClientForPayments(client)} 
-                        className="bg-green-100 text-green-700 hover:bg-green-200 hover:text-green-900 p-2 rounded-md transition-colors" 
-                        title="Gestionar Pagos"
-                    >
-                        <DollarSign size={18} />
-                    </button>
-                    <Link to={`/clients/${client.id}/edit`} className="text-primary-dark hover:text-primary p-2" title="Editar Cliente">
-                      <Edit3 size={18} />
-                    </Link>
-                    <button onClick={() => setClientToDelete(client)} className="text-danger hover:text-red-700 p-2" title="Eliminar Cliente">
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )})}
-          </tbody>
-        </table>
-      </div>
+                      <td className="px-5 py-4 text-sm whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${isHighBalance
+                            ? 'bg-danger-50 text-danger border border-danger/20'
+                            : 'bg-success-50 text-success-dark border border-success/20'
+                          }`}>
+                          {formatCurrency(balance)}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-4 text-sm">
+                        <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => setClientForPayments(client)}
+                            className="p-2 text-secondary-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                            title="Gestionar Pagos"
+                          >
+                            <DollarSign size={16} />
+                          </button>
+                          <Link
+                            to={`/clients/${client.id}/edit`}
+                            className="p-2 text-secondary-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
+                            title="Editar Cliente"
+                          >
+                            <Edit3 size={16} />
+                          </Link>
+                          <button
+                            onClick={() => setClientToDelete(client)}
+                            className="p-2 text-secondary-400 hover:text-danger hover:bg-danger-50 rounded-lg transition-colors"
+                            title="Eliminar Cliente"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
+      {/* Payment Manager Modal */}
       {clientForPayments && (
         <Modal
-            isOpen={!!clientForPayments}
-            onClose={() => {
-                setClientForPayments(null);
-                fetchData(); // Recargamos para actualizar el saldo al cerrar
-            }}
-            title={`Gestión de Pagos: ${clientForPayments.name}`}
-            size="2xl"
+          isOpen={!!clientForPayments}
+          onClose={() => {
+            setClientForPayments(null);
+            fetchData();
+          }}
+          title={`Gestión de Pagos: ${clientForPayments.name}`}
+          size="2xl"
         >
-            <PaymentManager 
-                client={clientForPayments} 
-                onClose={() => {
-                    setClientForPayments(null);
-                    fetchData();
-                }} 
-            />
+          <PaymentManager
+            client={clientForPayments}
+            onClose={() => {
+              setClientForPayments(null);
+              fetchData();
+            }}
+          />
         </Modal>
       )}
 
+      {/* Delete Modal */}
       <Modal
         isOpen={!!clientToDelete}
         onClose={() => setClientToDelete(null)}
@@ -236,21 +244,21 @@ const ClientListPage: React.FC = () => {
           <>
             <button
               onClick={() => setClientToDelete(null)}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+              className="px-4 py-2.5 bg-secondary-100 text-secondary-700 rounded-xl hover:bg-secondary-200 transition-colors text-sm font-medium"
             >
               Cancelar
             </button>
             <button
               onClick={handleDeleteClient}
-              className="px-4 py-2 bg-danger text-white rounded-md hover:bg-red-700 transition-colors"
+              className="px-4 py-2.5 bg-danger text-white rounded-xl hover:bg-danger-dark transition-colors text-sm font-medium"
             >
               Eliminar
             </button>
           </>
         }
       >
-        <p>¿Está seguro que desea eliminar el cliente "{clientToDelete?.name}"?</p>
-        <p className="text-sm text-gray-500">Esta acción no se puede deshacer.</p>
+        <p className="text-secondary-700">¿Está seguro que desea eliminar el cliente "{clientToDelete?.name}"?</p>
+        <p className="text-sm text-secondary-400 mt-1">Esta acción no se puede deshacer.</p>
       </Modal>
     </div>
   );

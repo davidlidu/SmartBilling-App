@@ -12,32 +12,32 @@ interface ModalProps {
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
   if (!isOpen) return null;
-  
+
   const sizeClass = {
-      md: 'max-w-md',
-      lg: 'max-w-lg',
-      xl: 'max-w-xl',
-      '2xl': 'max-w-2xl',
+    md: 'max-w-md',
+    lg: 'max-w-lg',
+    xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
   }[size];
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className={`bg-white rounded-lg shadow-xl w-full ${sizeClass} transform transition-all`}>
-        <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+      <div className={`bg-white rounded-2xl shadow-glass-lg w-full ${sizeClass} animate-scaleIn border border-secondary-100`}>
+        <div className="flex items-center justify-between p-5 border-b border-secondary-100">
+          <h3 className="text-lg font-bold text-secondary-800">{title}</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-secondary-400 hover:text-secondary-600 hover:bg-secondary-100 p-1.5 rounded-lg transition-all duration-200"
             aria-label="Cerrar modal"
           >
-            <X size={24} />
+            <X size={20} />
           </button>
         </div>
-        <div className="p-4 max-h-[70vh] overflow-y-auto">
+        <div className="p-5 max-h-[70vh] overflow-y-auto">
           {children}
         </div>
         {footer && (
-          <div className="p-4 border-t flex justify-end space-x-2">
+          <div className="p-5 border-t border-secondary-100 flex justify-end space-x-3">
             {footer}
           </div>
         )}

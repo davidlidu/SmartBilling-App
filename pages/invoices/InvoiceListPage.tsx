@@ -5,7 +5,7 @@ import { getInvoices, deleteInvoice as apiDeleteInvoice } from '../../services/i
 import { getClients } from '../../services/clientService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Modal from '../../components/Modal';
-import { PlusCircle, Edit3, Trash2, Download, Search, FileText, Eye } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, Search, FileText, Eye } from 'lucide-react';
 import { formatCurrency, formatDateForDisplay } from '../../utils/formatting';
 
 const InvoiceListPage: React.FC = () => {
@@ -39,15 +39,12 @@ const InvoiceListPage: React.FC = () => {
     return clients.find(c => c.id === clientId)?.name || 'N/A';
   };
 
-  // Lógica segura para calcular el total
   const calculateInvoiceTotal = (invoice: any): number => {
-    // 1. Si el backend ya manda el total, úsalo
     if (invoice.totalAmount !== undefined && invoice.totalAmount !== null) {
-        return parseFloat(invoice.totalAmount);
+      return parseFloat(invoice.totalAmount);
     }
-    // 2. Si no, intenta sumarlo de los items (si existen)
     if (invoice.lineItems && Array.isArray(invoice.lineItems)) {
-        return invoice.lineItems.reduce((sum: number, item: any) => sum + (item.quantity * item.unitPrice), 0);
+      return invoice.lineItems.reduce((sum: number, item: any) => sum + (item.quantity * item.unitPrice), 0);
     }
     return 0;
   };
@@ -63,7 +60,7 @@ const InvoiceListPage: React.FC = () => {
       console.error(err);
     }
   };
-  
+
   const filteredInvoices = invoices.filter(invoice => {
     const clientName = getClientName(invoice.clientId).toLowerCase();
     const invoiceNumber = invoice.invoiceNumber.toLowerCase();
@@ -76,101 +73,108 @@ const InvoiceListPage: React.FC = () => {
   }
 
   if (error) {
-    return <div className="text-red-500 bg-red-100 p-4 rounded-md">{error}</div>;
+    return <div className="text-danger bg-danger-50 p-4 rounded-2xl border border-danger/20 font-medium">{error}</div>;
   }
 
   return (
-    <div className="container mx-auto space-y-6">
+    <div className="container mx-auto space-y-6 max-w-6xl animate-fadeIn">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-3xl font-semibold text-gray-700">Facturas</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-secondary-800">Facturas</h2>
+          <p className="text-sm text-secondary-400 mt-0.5">{invoices.length} facturas registradas</p>
+        </div>
         <Link
           to="/invoices/new"
-          className="bg-primary hover:bg-primary-dark text-white font-semibold py-2 px-4 rounded-lg shadow-md flex items-center transition-colors w-full sm:w-auto justify-center"
+          className="bg-gradient-to-r from-primary to-primary-700 hover:from-primary-600 hover:to-primary-800 text-white font-semibold py-2.5 px-5 rounded-xl shadow-lg hover:shadow-glow flex items-center transition-all w-full sm:w-auto justify-center text-sm"
         >
-          <PlusCircle size={20} className="mr-2" />
+          <PlusCircle size={18} className="mr-2" />
           Crear Factura
         </Link>
       </div>
 
-      <div className="bg-white p-4 rounded-lg shadow">
+      {/* Search */}
+      <div className="bg-white p-3 rounded-2xl shadow-card border border-secondary-100">
         <div className="relative">
           <input
             type="text"
             placeholder="Buscar facturas por número o nombre de cliente..."
-            className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary"
+            className="w-full p-3 pl-10 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             aria-label="Buscar facturas"
           />
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400" size={18} />
         </div>
       </div>
 
+      {/* Table or Empty State */}
       {filteredInvoices.length === 0 && !isLoading ? (
-         <div className="text-center py-10 bg-white rounded-lg shadow">
-            <FileText size={48} className="mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600 text-xl">No se encontraron facturas.</p>
-            <p className="text-gray-500">Intenta ajustar tu búsqueda o crea una nueva factura.</p>
+        <div className="text-center py-16 bg-white rounded-2xl shadow-card border border-secondary-100">
+          <div className="w-16 h-16 bg-secondary-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <FileText size={28} className="text-secondary-400" />
+          </div>
+          <p className="text-secondary-700 text-lg font-semibold">No se encontraron facturas</p>
+          <p className="text-secondary-400 text-sm mt-1">Intenta ajustar tu búsqueda o crea una nueva factura.</p>
         </div>
       ) : (
-      <div className="bg-white shadow-lg rounded-lg overflow-x-auto">
-        <table className="min-w-full leading-normal">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-3 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-black-600 uppercase tracking-wider whitespace-nowrap">Fact. #</th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Cliente</th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Fecha</th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredInvoices.map(invoice => (
-              <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-3 py-4 border-b border-gray-200 text-sm whitespace-nowrap">
-                  <span className="bg-slate-200 text-slate-700 px-2 py-1 rounded-md text-xs font-medium">
-                    {invoice.invoiceNumber}
-                  </span>
-                </td>
-                <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{getClientName(invoice.clientId)}</td>
-                <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800">{formatDateForDisplay(invoice.date)}</td>
-                <td className="px-5 py-4 border-b border-gray-200 text-sm whitespace-nowrap text-gray-800 font-medium">{formatCurrency(calculateInvoiceTotal(invoice))}</td>
-                <td className="px-5 py-4 border-b border-gray-200 text-sm">
-                  <div className="flex space-x-3">
-                    {/* Ver Factura */}
-                    <Link 
-                        to={`/invoices/${invoice.id}/view`} 
-                        className="text-gray-600 hover:text-blue-600 p-1" 
-                        title="Ver Factura (Detalle)"
-                    >
-                        <Eye size={18} />
-                    </Link>
-
-                    {/* Descargar PDF (Abre pestaña nueva y activa la autodescarga) 
-                    <Link
-                      to={`/invoices/${invoice.id}/view?download=true`} 
-                      className="text-green-600 hover:text-green-800 p-1"
-                      title="Descargar PDF"
-                      target="_blank" 
-                    >
-                        <Download size={18} />
-                    </Link>*/}
-
-                    <Link to={`/invoices/${invoice.id}/edit`} className="text-primary-dark hover:text-primary p-1" title="Editar Factura">
-                      <Edit3 size={18} />
-                    </Link>
-                    <button onClick={() => setInvoiceToDelete(invoice)} className="text-danger hover:text-red-700 p-1" title="Eliminar Factura">
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        <div className="bg-white shadow-card rounded-2xl overflow-hidden border border-secondary-100">
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="bg-secondary-50 border-b border-secondary-200">
+                  <th className="px-4 py-3.5 text-left text-[11px] font-bold text-secondary-500 uppercase tracking-wider">Fact. #</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-secondary-500 uppercase tracking-wider">Cliente</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-secondary-500 uppercase tracking-wider">Fecha</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-secondary-500 uppercase tracking-wider">Total</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-bold text-secondary-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-secondary-100">
+                {filteredInvoices.map(invoice => (
+                  <tr key={invoice.id} className="hover:bg-primary-50/30 transition-colors group">
+                    <td className="px-4 py-4 text-sm whitespace-nowrap">
+                      <span className="bg-primary-50 text-primary-700 px-2.5 py-1 rounded-lg text-xs font-bold">
+                        {invoice.invoiceNumber}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-sm whitespace-nowrap text-secondary-700 font-medium">{getClientName(invoice.clientId)}</td>
+                    <td className="px-5 py-4 text-sm whitespace-nowrap text-secondary-500">{formatDateForDisplay(invoice.date)}</td>
+                    <td className="px-5 py-4 text-sm whitespace-nowrap text-secondary-800 font-bold">{formatCurrency(calculateInvoiceTotal(invoice))}</td>
+                    <td className="px-5 py-4 text-sm">
+                      <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                        <Link
+                          to={`/invoices/${invoice.id}/view`}
+                          className="p-2 text-secondary-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Ver Factura"
+                        >
+                          <Eye size={16} />
+                        </Link>
+                        <Link
+                          to={`/invoices/${invoice.id}/edit`}
+                          className="p-2 text-secondary-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
+                          title="Editar Factura"
+                        >
+                          <Edit3 size={16} />
+                        </Link>
+                        <button
+                          onClick={() => setInvoiceToDelete(invoice)}
+                          className="p-2 text-secondary-400 hover:text-danger hover:bg-danger-50 rounded-lg transition-colors"
+                          title="Eliminar Factura"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
+      {/* Delete Modal */}
       <Modal
         isOpen={!!invoiceToDelete}
         onClose={() => setInvoiceToDelete(null)}
@@ -179,21 +183,21 @@ const InvoiceListPage: React.FC = () => {
           <>
             <button
               onClick={() => setInvoiceToDelete(null)}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+              className="px-4 py-2.5 bg-secondary-100 text-secondary-700 rounded-xl hover:bg-secondary-200 transition-colors text-sm font-medium"
             >
               Cancelar
             </button>
             <button
               onClick={handleDeleteInvoice}
-              className="px-4 py-2 bg-danger text-white rounded-md hover:bg-red-700 transition-colors"
+              className="px-4 py-2.5 bg-danger text-white rounded-xl hover:bg-danger-dark transition-colors text-sm font-medium"
             >
               Eliminar
             </button>
           </>
         }
       >
-        <p>¿Está seguro que desea eliminar la factura #{invoiceToDelete?.invoiceNumber}?</p>
-        <p className="text-sm text-gray-500">Esta acción no se puede deshacer.</p>
+        <p className="text-secondary-700">¿Está seguro que desea eliminar la factura #{invoiceToDelete?.invoiceNumber}?</p>
+        <p className="text-sm text-secondary-400 mt-1">Esta acción no se puede deshacer.</p>
       </Modal>
     </div>
   );

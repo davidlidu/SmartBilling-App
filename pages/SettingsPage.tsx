@@ -3,26 +3,26 @@ import { SenderDetails } from '../types';
 import { getSettings, saveSettings, resetSettingsFrontendCache } from '../services/settingsService';
 import { DEFAULT_SENDER_DETAILS } from '../constants';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { Save, RotateCcw, ImageUp, Trash2 } from 'lucide-react';
+import { Save, RotateCcw, Trash2, User, Palette, CreditCard, ImageUp, PenLine } from 'lucide-react';
 
 const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<SenderDetails>(DEFAULT_SENDER_DETAILS);
-  const [isLoading, setIsLoading] = useState(true); // For page load and save operations
-  const [isPageLoading, setIsPageLoading] = useState(true); // Specifically for initial data fetch
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPageLoading, setIsPageLoading] = useState(true);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const fetchInitialSettings = useCallback(async () => {
     setIsPageLoading(true);
     try {
       const currentSettings = await getSettings();
-      setSettings(currentSettings || DEFAULT_SENDER_DETAILS); // Use default if backend returns null
+      setSettings(currentSettings || DEFAULT_SENDER_DETAILS);
     } catch (error) {
       console.error("Error al cargar la configuración inicial:", error);
       setFeedback({ type: 'error', message: 'No se pudo cargar la configuración. Usando valores predeterminados.' });
-      setSettings(DEFAULT_SENDER_DETAILS); // Fallback to default on error
+      setSettings(DEFAULT_SENDER_DETAILS);
     } finally {
       setIsPageLoading(false);
-      setIsLoading(false); // General loading state also stops
+      setIsLoading(false);
     }
   }, []);
 
@@ -56,29 +56,21 @@ const SettingsPage: React.FC = () => {
     setFeedback(null);
     try {
       const updatedSettings = await saveSettings(settings);
-      setSettings(updatedSettings); // Update state with potentially backend-modified data (e.g. profile_id)
+      setSettings(updatedSettings);
       setFeedback({ type: 'success', message: '¡Configuración guardada exitosamente!' });
     } catch (error: any) {
       console.error("Error al guardar configuración:", error);
-      setFeedback({ type: 'error', message: error.message || 'Error al guardar la configuración. Por favor, inténtelo de nuevo.' });
+      setFeedback({ type: 'error', message: error.message || 'Error al guardar la configuración.' });
     } finally {
       setIsLoading(false);
-      setTimeout(() => setFeedback(null), 3000); 
+      setTimeout(() => setFeedback(null), 3000);
     }
   };
 
   const handleReset = async () => {
-    // This function now primarily resets frontend state to defaults.
-    // True backend reset would require specific backend endpoint or logic in saveSettings.
     setIsLoading(true);
     setFeedback(null);
     try {
-      // Option 1: Just reset frontend state and rely on next save to push defaults if desired
-      // setSettings(DEFAULT_SENDER_DETAILS); 
-      // feedback for frontend reset:
-      // setFeedback({ type: 'success', message: 'Campos restablecidos. Guarde para aplicar los valores predeterminados.' });
-      
-      // Option 2: Attempt to save DEFAULT_SENDER_DETAILS to backend
       const resetToDefaults = await saveSettings(DEFAULT_SENDER_DETAILS);
       setSettings(resetToDefaults);
       setFeedback({ type: 'success', message: '¡Configuración restablecida y guardada en el servidor!' });
@@ -91,118 +83,156 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  if (isPageLoading) { 
+  if (isPageLoading) {
     return <div className="flex justify-center items-center h-64"><LoadingSpinner size={12} /></div>;
   }
 
   return (
-    <div className="container mx-auto space-y-6">
+    <div className="container mx-auto space-y-6 max-w-4xl animate-fadeIn">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-3xl font-semibold text-gray-700">Configuración de Plantilla de Factura</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-secondary-800">Configuración de Plantilla</h2>
+          <p className="text-sm text-secondary-400 mt-0.5">Personaliza tu factura y datos de remitente</p>
+        </div>
         <button
-            onClick={handleReset}
-            type="button"
-            disabled={isLoading}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md flex items-center transition-colors disabled:opacity-50"
+          onClick={handleReset}
+          type="button"
+          disabled={isLoading}
+          className="bg-warning hover:bg-warning-dark text-white font-semibold py-2.5 px-5 rounded-xl shadow-md flex items-center transition-all disabled:opacity-50 text-sm"
         >
-            <RotateCcw size={18} className="mr-2" /> Restablecer y Guardar Predeterminados
+          <RotateCcw size={16} className="mr-2" /> Restablecer
         </button>
       </div>
 
+      {/* Feedback */}
       {feedback && (
-        <div className={`p-4 rounded-md text-white ${feedback.type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}>
+        <div className={`p-4 rounded-xl font-medium text-sm animate-fadeIn ${feedback.type === 'success'
+            ? 'bg-success-50 text-success-dark border border-success/20'
+            : 'bg-danger-50 text-danger border border-danger/20'
+          }`}>
           {feedback.message}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded-lg shadow-lg space-y-8">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* Sender Info Section */}
-        <section>
-          <h3 className="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Información del Remitente</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-2xl shadow-card border border-secondary-100">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="p-2 bg-primary-50 rounded-lg">
+              <User size={18} className="text-primary" />
+            </div>
+            <h3 className="text-base font-bold text-secondary-800">Información del Remitente</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo / Razón Social</label>
-              <input type="text" name="name" id="name" value={settings.name} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary" required />
+              <label htmlFor="name" className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">Nombre / Razón Social</label>
+              <input type="text" name="name" id="name" value={settings.name} onChange={handleChange} className="w-full p-3 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm" required />
             </div>
             <div>
-              <label htmlFor="nit" className="block text-sm font-medium text-gray-700 mb-1">NIT / CC</label>
-              <input type="text" name="nit" id="nit" value={settings.nit} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary" required />
+              <label htmlFor="nit" className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">NIT / CC</label>
+              <input type="text" name="nit" id="nit" value={settings.nit} onChange={handleChange} className="w-full p-3 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm" required />
             </div>
             <div>
-              <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">Tipo (ej: Persona Natural)</label>
-              <input type="text" name="type" id="type" value={settings.type} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary" />
+              <label htmlFor="type" className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">Tipo (ej: Persona Natural)</label>
+              <input type="text" name="type" id="type" value={settings.type} onChange={handleChange} className="w-full p-3 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm" />
             </div>
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-              <input type="tel" name="phone" id="phone" value={settings.phone} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary" />
+              <label htmlFor="phone" className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">Teléfono</label>
+              <input type="tel" name="phone" id="phone" value={settings.phone} onChange={handleChange} className="w-full p-3 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm" />
             </div>
             <div className="md:col-span-2">
-              <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
-              <input type="text" name="address" id="address" value={settings.address} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary" />
+              <label htmlFor="address" className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">Dirección</label>
+              <input type="text" name="address" id="address" value={settings.address} onChange={handleChange} className="w-full p-3 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm" />
             </div>
             <div className="md:col-span-2">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico</label>
-              <input type="email" name="email" id="email" value={settings.email} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary" />
+              <label htmlFor="email" className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">Correo Electrónico</label>
+              <input type="email" name="email" id="email" value={settings.email} onChange={handleChange} className="w-full p-3 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm" />
             </div>
           </div>
-        </section>
+        </div>
 
         {/* Branding Section */}
-        <section>
-          <h3 className="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Personalización (Branding)</h3>
+        <div className="bg-white p-6 rounded-2xl shadow-card border border-secondary-100">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="p-2 bg-violet-50 rounded-lg">
+              <Palette size={18} className="text-violet-600" />
+            </div>
+            <h3 className="text-base font-bold text-secondary-800">Personalización (Branding)</h3>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            {/* Logo */}
             <div>
-              <label htmlFor="logoUrl" className="block text-sm font-medium text-gray-700 mb-1">Imagen del Logo (URL o Base64)</label>
-              <input type="file" id="logoUpload" accept="image/*" onChange={(e) => handleImageUpload(e, 'logoUrl')} className="mb-2 w-full p-2 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-light/20 file:text-primary hover:file:bg-primary-light/30" />
-              <input type="text" name="logoUrl" placeholder="O pegue la URL del logo aquí" value={settings.logoUrl || ''} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary" />
-
+              <label className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">Logo</label>
+              <div className="border-2 border-dashed border-secondary-200 rounded-xl p-4 text-center hover:border-primary-300 transition-colors">
+                <ImageUp size={24} className="mx-auto text-secondary-400 mb-2" />
+                <input type="file" id="logoUpload" accept="image/*" onChange={(e) => handleImageUpload(e, 'logoUrl')} className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary hover:file:bg-primary-100 cursor-pointer" />
+              </div>
+              <input type="text" name="logoUrl" placeholder="O pegue la URL del logo" value={settings.logoUrl || ''} onChange={handleChange} className="w-full p-3 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm mt-2" />
               {settings.logoUrl && (
-                <div className="mt-2 p-2 border rounded-md inline-block relative">
-                  <img src={settings.logoUrl} alt="Vista previa del Logo" className="h-16 object-contain" />
-                  <button type="button" onClick={() => removeImage('logoUrl')} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-700" title="Eliminar logo"><Trash2 size={14} /></button>
+                <div className="mt-3 p-3 border border-secondary-200 rounded-xl inline-block relative bg-secondary-50">
+                  <img src={settings.logoUrl} alt="Logo" className="h-16 object-contain" />
+                  <button type="button" onClick={() => removeImage('logoUrl')} className="absolute -top-2 -right-2 bg-danger text-white rounded-full p-1 hover:bg-danger-dark shadow-md" title="Eliminar logo">
+                    <Trash2 size={12} />
+                  </button>
                 </div>
               )}
             </div>
-             <div>
-              <label htmlFor="signatureImageUrl" className="block text-sm font-medium text-gray-700 mb-1">Imagen de la Firma (URL o Base64)</label>
-              <input type="file" id="signatureUpload" accept="image/*" onChange={(e) => handleImageUpload(e, 'signatureImageUrl')} className="mb-2 w-full p-2 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-light/20 file:text-primary hover:file:bg-primary-light/30" />
-               <input type="text" name="signatureImageUrl" placeholder="O pegue la URL de la firma aquí" value={settings.signatureImageUrl || ''} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary" />
+
+            {/* Signature Image */}
+            <div>
+              <label className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">Firma</label>
+              <div className="border-2 border-dashed border-secondary-200 rounded-xl p-4 text-center hover:border-primary-300 transition-colors">
+                <PenLine size={24} className="mx-auto text-secondary-400 mb-2" />
+                <input type="file" id="signatureUpload" accept="image/*" onChange={(e) => handleImageUpload(e, 'signatureImageUrl')} className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary hover:file:bg-primary-100 cursor-pointer" />
+              </div>
+              <input type="text" name="signatureImageUrl" placeholder="O pegue la URL de la firma" value={settings.signatureImageUrl || ''} onChange={handleChange} className="w-full p-3 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm mt-2" />
               {settings.signatureImageUrl && (
-                 <div className="mt-2 p-2 border rounded-md inline-block relative">
-                    <img src={settings.signatureImageUrl} alt="Vista previa de la Firma" className="h-16 object-contain bg-gray-100" />
-                     <button type="button" onClick={() => removeImage('signatureImageUrl')} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-700" title="Eliminar imagen de firma"><Trash2 size={14} /></button>
-                 </div>
+                <div className="mt-3 p-3 border border-secondary-200 rounded-xl inline-block relative bg-secondary-50">
+                  <img src={settings.signatureImageUrl} alt="Firma" className="h-16 object-contain" />
+                  <button type="button" onClick={() => removeImage('signatureImageUrl')} className="absolute -top-2 -right-2 bg-danger text-white rounded-full p-1 hover:bg-danger-dark shadow-md" title="Eliminar firma">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
               )}
             </div>
           </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-             <div>
-              <label htmlFor="signatureName" className="block text-sm font-medium text-gray-700 mb-1">Nombre del Firmante (Impreso)</label>
-              <input type="text" name="signatureName" id="signatureName" value={settings.signatureName} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary" />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-6">
+            <div>
+              <label htmlFor="signatureName" className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">Nombre del Firmante</label>
+              <input type="text" name="signatureName" id="signatureName" value={settings.signatureName} onChange={handleChange} className="w-full p-3 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm" />
             </div>
             <div>
-              <label htmlFor="signatureCC" className="block text-sm font-medium text-gray-700 mb-1">CC del Firmante (Impreso)</label>
-              <input type="text" name="signatureCC" id="signatureCC" value={settings.signatureCC} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary" />
+              <label htmlFor="signatureCC" className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">CC del Firmante</label>
+              <input type="text" name="signatureCC" id="signatureCC" value={settings.signatureCC} onChange={handleChange} className="w-full p-3 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm" />
             </div>
-           </div>
-        </section>
+          </div>
+        </div>
 
         {/* Payment Info Section */}
-        <section>
-          <h3 className="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Información de Pago</h3>
-          <div>
-            <label htmlFor="bankAccountInfo" className="block text-sm font-medium text-gray-700 mb-1">Detalles de Cuenta Bancaria (Notas predeterminadas en nuevas facturas)</label>
-            <textarea name="bankAccountInfo" id="bankAccountInfo" value={settings.bankAccountInfo} onChange={handleChange} rows={4} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary" placeholder="Ej: Cuenta de ahorros Bancolombia XXX-XXXXXX-X&#10;Nombre Titular&#10;CC. XXXXXXX" />
+        <div className="bg-white p-6 rounded-2xl shadow-card border border-secondary-100">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="p-2 bg-emerald-50 rounded-lg">
+              <CreditCard size={18} className="text-emerald-600" />
+            </div>
+            <h3 className="text-base font-bold text-secondary-800">Información de Pago</h3>
           </div>
-        </section>
+          <div>
+            <label htmlFor="bankAccountInfo" className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">Detalles de Cuenta Bancaria</label>
+            <textarea name="bankAccountInfo" id="bankAccountInfo" value={settings.bankAccountInfo} onChange={handleChange} rows={4} className="w-full p-3 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm" placeholder="Ej: Cuenta de ahorros Bancolombia XXX-XXXXXX-X&#10;Nombre Titular&#10;CC. XXXXXXX" />
+            <p className="text-[11px] text-secondary-400 mt-1">Esta información aparecerá como nota predeterminada en nuevas facturas.</p>
+          </div>
+        </div>
 
-        <div className="flex justify-end pt-6 border-t">
+        {/* Save Button */}
+        <div className="flex justify-end pt-2">
           <button
             type="submit"
             disabled={isLoading}
-            className="bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-6 rounded-lg shadow-md flex items-center transition-colors disabled:opacity-50"
+            className="bg-gradient-to-r from-primary to-primary-700 hover:from-primary-600 hover:to-primary-800 text-white font-semibold py-3 px-8 rounded-xl shadow-lg hover:shadow-glow flex items-center transition-all disabled:opacity-50 text-sm"
           >
-            {isLoading && !feedback ? <LoadingSpinner size={5} /> : <Save size={20} className="mr-2" />}
+            {isLoading && !feedback ? <LoadingSpinner size={5} /> : <Save size={18} className="mr-2" />}
             {isLoading && !feedback ? 'Guardando...' : 'Guardar Configuración'}
           </button>
         </div>
