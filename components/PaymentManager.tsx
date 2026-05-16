@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useCallback, FormEvent } from 'react';
 import { Payment, Client } from '../types';
-import { getPaymentsByClient, createPayment, deletePayment } from '../services/paymentService';
+import { getPaymentsByClient, createPayment, updatePayment, deletePayment } from '../services/paymentService';
 import LoadingSpinner from './LoadingSpinner';
 import { formatCurrency, formatDateForDisplay, formatDateForInput } from '../utils/formatting';
-import { Trash2, PlusCircle, DollarSign, AlertCircle } from 'lucide-react';
+import { Trash2, PlusCircle, DollarSign, AlertCircle, Pencil, Check, X } from 'lucide-react';
 
 interface PaymentManagerProps {
   client: Client;
   onClose: () => void;
 }
+
+const PAYMENT_METHODS = ['Transferencia Bancaria', 'Efectivo', 'PSE', 'Tarjeta de Crédito', 'Cheque', 'Otro'];
 
 const PaymentManager: React.FC<PaymentManagerProps> = ({ client }) => {
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -20,9 +22,13 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({ client }) => {
   const [newPayment, setNewPayment] = useState({
     amount: '',
     date: formatDateForInput(new Date()),
-    method: 'Transferencia',
-    notes: ''
+    method: 'Transferencia Bancaria',
+    notes: '',
   });
+
+  // Inline edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ amount: '', date: '', method: '', notes: '' });
 
   const fetchPayments = useCallback(async () => {
     setIsLoading(true);
@@ -41,6 +47,11 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({ client }) => {
     fetchPayments();
   }, [fetchPayments]);
 
+  const showSuccess = (msg: string) => {
+    setSuccessMsg(msg);
+    setTimeout(() => setSuccessMsg(null), 3000);
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setNewPayment(prev => ({ ...prev, [name]: value }));
@@ -52,32 +63,56 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({ client }) => {
       setError('Por favor ingrese un monto válido.');
       return;
     }
-
     setIsSubmitting(true);
     setError(null);
-    setSuccessMsg(null);
     try {
-      const paymentData = {
+      await createPayment({
         clientId: client.id,
         amount: parseFloat(newPayment.amount),
         date: newPayment.date,
         method: newPayment.method,
         notes: newPayment.notes,
-      };
-      await createPayment(paymentData);
-      setNewPayment({
-        amount: '',
-        date: formatDateForInput(new Date()),
-        method: 'Transferencia',
-        notes: ''
       });
-      setSuccessMsg('Pago registrado correctamente.');
+      setNewPayment({ amount: '', date: formatDateForInput(new Date()), method: 'Transferencia Bancaria', notes: '' });
+      showSuccess('Pago registrado correctamente.');
       fetchPayments();
     } catch (err: any) {
       setError(err.message || 'Error al registrar el pago.');
     } finally {
       setIsSubmitting(false);
-      setTimeout(() => setSuccessMsg(null), 3000);
+    }
+  };
+
+  const startEdit = (p: Payment) => {
+    setEditingId(p.id);
+    setEditForm({
+      amount: String(p.amount),
+      date: p.date ? p.date.split('T')[0] : '',
+      method: p.method || 'Transferencia Bancaria',
+      notes: p.notes || '',
+    });
+  };
+
+  const cancelEdit = () => setEditingId(null);
+
+  const saveEdit = async (paymentId: string) => {
+    if (!editForm.amount || Number(editForm.amount) <= 0) {
+      setError('Por favor ingrese un monto válido.');
+      return;
+    }
+    setError(null);
+    try {
+      await updatePayment(paymentId, {
+        amount: parseFloat(editForm.amount),
+        date: editForm.date,
+        method: editForm.method,
+        notes: editForm.notes,
+      });
+      setEditingId(null);
+      showSuccess('Pago actualizado correctamente.');
+      fetchPayments();
+    } catch (err: any) {
+      setError(err.message || 'Error al actualizar el pago.');
     }
   };
 
@@ -150,12 +185,7 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({ client }) => {
           <div className="md:col-span-2">
             <label htmlFor="method" className="block text-xs font-semibold text-secondary-500 mb-1 uppercase tracking-wider">Método de Pago</label>
             <select name="method" id="method" value={newPayment.method} onChange={handleInputChange} className="w-full p-2.5 border border-secondary-200 rounded-xl bg-white focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm">
-              <option>Transferencia Bancaria</option>
-              <option>Efectivo</option>
-              <option>PSE</option>
-              <option>Tarjeta de Crédito</option>
-              <option>Cheque</option>
-              <option>Otro</option>
+              {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
             </select>
           </div>
           <div className="md:col-span-2">
@@ -196,23 +226,95 @@ const PaymentManager: React.FC<PaymentManagerProps> = ({ client }) => {
                   <th className="p-3 text-left text-[11px] font-bold text-secondary-500 uppercase tracking-wider">Monto</th>
                   <th className="p-3 text-left text-[11px] font-bold text-secondary-500 uppercase tracking-wider">Método</th>
                   <th className="p-3 text-left text-[11px] font-bold text-secondary-500 uppercase tracking-wider">Notas</th>
-                  <th className="p-3 text-center text-[11px] font-bold text-secondary-500 uppercase tracking-wider">Acción</th>
+                  <th className="p-3 text-center text-[11px] font-bold text-secondary-500 uppercase tracking-wider">Acciones</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-secondary-100">
                 {payments.map(p => (
                   <tr key={p.id} className="hover:bg-primary-50/30 transition-colors group">
-                    <td className="p-3 whitespace-nowrap text-secondary-600">{formatDateForDisplay(p.date)}</td>
-                    <td className="p-3 whitespace-nowrap font-bold text-success-dark">
-                      {formatCurrency(Number(p.amount))}
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-secondary-500">{p.method}</td>
-                    <td className="p-3 text-secondary-500 max-w-xs truncate" title={p.notes}>{p.notes || '-'}</td>
-                    <td className="p-3 text-center">
-                      <button onClick={() => handleDelete(p.id)} className="text-secondary-300 hover:text-danger hover:bg-danger-50 p-1.5 rounded-lg transition-colors opacity-60 group-hover:opacity-100" title="Eliminar Pago">
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
+                    {editingId === p.id ? (
+                      <>
+                        <td className="p-2">
+                          <input
+                            type="date"
+                            value={editForm.date}
+                            onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))}
+                            className="w-full p-1.5 border border-secondary-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-300"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="number"
+                            value={editForm.amount}
+                            min="1"
+                            step="any"
+                            onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))}
+                            className="w-24 p-1.5 border border-secondary-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-300"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <select
+                            value={editForm.method}
+                            onChange={e => setEditForm(f => ({ ...f, method: e.target.value }))}
+                            className="w-full p-1.5 border border-secondary-200 rounded-lg bg-white text-xs focus:ring-1 focus:ring-primary-300"
+                          >
+                            {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
+                          </select>
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={editForm.notes}
+                            onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                            placeholder="Notas..."
+                            className="w-full p-1.5 border border-secondary-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-300"
+                          />
+                        </td>
+                        <td className="p-2 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => saveEdit(p.id)}
+                              className="p-1.5 text-success-dark hover:bg-success-50 rounded-lg transition-colors"
+                              title="Guardar"
+                            >
+                              <Check size={15} />
+                            </button>
+                            <button
+                              onClick={cancelEdit}
+                              className="p-1.5 text-secondary-400 hover:bg-secondary-100 rounded-lg transition-colors"
+                              title="Cancelar"
+                            >
+                              <X size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="p-3 whitespace-nowrap text-secondary-600">{formatDateForDisplay(p.date)}</td>
+                        <td className="p-3 whitespace-nowrap font-bold text-success-dark">{formatCurrency(Number(p.amount))}</td>
+                        <td className="p-3 whitespace-nowrap text-secondary-500">{p.method}</td>
+                        <td className="p-3 text-secondary-500 max-w-xs truncate" title={p.notes}>{p.notes || '-'}</td>
+                        <td className="p-3 text-center">
+                          <div className="flex items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => startEdit(p)}
+                              className="p-1.5 text-secondary-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
+                              title="Editar Pago"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(p.id)}
+                              className="p-1.5 text-secondary-400 hover:text-danger hover:bg-danger-50 rounded-lg transition-colors"
+                              title="Eliminar Pago"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>

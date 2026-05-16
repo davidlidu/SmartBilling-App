@@ -59,6 +59,40 @@ exports.getPaymentsByClientId = async (req, res, next) => {
   }
 };
 
+exports.updatePayment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { amount, date, method, notes } = req.body;
+
+    if (amount === undefined || !date) {
+      return res.status(400).json({ message: 'amount and date are required fields.' });
+    }
+
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ message: 'Amount must be a positive number.' });
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ message: 'Date must be in YYYY-MM-DD format.' });
+    }
+
+    const [result] = await db.query(
+      'UPDATE payments SET amount = ?, date = ?, method = ?, notes = ? WHERE id = ?',
+      [parsedAmount, date, method || null, notes || null, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Payment not found.' });
+    }
+
+    const [rows] = await db.query('SELECT * FROM payments WHERE id = ?', [id]);
+    res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.deletePayment = async (req, res, next) => {
   try {
     const { id } = req.params;

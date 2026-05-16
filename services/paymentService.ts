@@ -60,11 +60,21 @@ export const createPayment = async (paymentData: PaymentInputData): Promise<Paym
   return handleResponse<Payment>(response); 
 };
 
+export const updatePayment = async (
+  paymentId: string,
+  data: { amount: number; date: string; method?: string; notes?: string }
+): Promise<Payment> => {
+  const response = await fetch(`${API_BASE_URL}/payments/${encodeURIComponent(paymentId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return handleResponse<Payment>(response);
+};
+
 export const deletePayment = async (paymentId: string): Promise<void> => {
   const response = await fetch(`${API_BASE_URL}/payments/${encodeURIComponent(paymentId)}`, {
     method: 'DELETE',
   });
   return handleResponse<void>(response);
 };
-
-// Add other payment-related API functions here if needed (e.g., updatePayment)

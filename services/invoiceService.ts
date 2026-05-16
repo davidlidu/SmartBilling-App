@@ -4,20 +4,21 @@ import { Invoice } from '../types';
 const API_BASE_URL = 'https://api.facturador.lidutech.net/api'; // PRODUCTION: Adjust to your deployed backend URL. e.g., https://yourdomain.com/api or '/api' if proxied.
 
 const handleResponse = async <T>(response: Response): Promise<T> => {
+  // Handle No Content before checking Content-Type (204 has no body/header)
+  if (response.status === 204) return undefined as unknown as T;
+
   const contentType = response.headers.get("content-type");
-  
+
   if (contentType && contentType.indexOf("application/json") !== -1) {
     const data = await response.json();
     if (!response.ok) {
         throw new Error(data.message || `Error ${response.status}: ${response.statusText}`);
     }
-    // Handle specific No Content case
-    if (response.status === 204) return undefined as unknown as T;
     return data as T;
   } else {
     // If response is not JSON (likely HTML error page from Nginx/Node crash)
     const text = await response.text();
-    console.error("Respuesta del servidor no es JSON:", text.substring(0, 200) + "..."); // Log first 200 chars
+    console.error("Respuesta del servidor no es JSON:", text.substring(0, 200) + "...");
     throw new Error(`Error de Servidor (Status ${response.status}). Verifica la conexión a la base de datos en los logs del servidor.`);
   }
 };

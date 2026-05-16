@@ -14,6 +14,7 @@ const InvoicePdfViewPage = lazy(() => import('./pages/invoices/InvoicePdfViewPag
 const ClientListPage = lazy(() => import('./pages/clients/ClientListPage'));
 const ClientFormPage = lazy(() => import('./pages/clients/ClientFormPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 
 const App: React.FC = () => {
   return (
@@ -51,6 +52,7 @@ const App: React.FC = () => {
                     <Route path="/clients" element={<ClientListPage />} />
                     <Route path="/clients/new" element={<ClientFormPage />} />
                     <Route path="/clients/:id/edit" element={<ClientFormPage />} />
+                    <Route path="/reports" element={<ReportsPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>

@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, FileText, Users, Settings, LogOut, X } from 'lucide-react';
+import { Home, FileText, Users, Settings, LogOut, X, BarChart2 } from 'lucide-react';
 import { AuthContext } from '../contexts/AuthContext';
 
 interface SidebarProps {
@@ -75,6 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         <NavLink to="/" icon={<Home size={18} />} label="Panel" onClick={handleNavClick} />
         <NavLink to="/invoices" icon={<FileText size={18} />} label="Facturas" onClick={handleNavClick} />
         <NavLink to="/clients" icon={<Users size={18} />} label="Clientes" onClick={handleNavClick} />
+        <NavLink to="/reports" icon={<BarChart2 size={18} />} label="Reportes" onClick={handleNavClick} />
 
         <div className="my-4 border-t border-white/5" />
         <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest px-4 mb-3">Sistema</p>

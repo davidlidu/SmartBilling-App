@@ -5,7 +5,7 @@ import { getInvoices, deleteInvoice as apiDeleteInvoice } from '../../services/i
 import { getClients } from '../../services/clientService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Modal from '../../components/Modal';
-import { PlusCircle, Edit3, Trash2, Search, FileText, Eye } from 'lucide-react';
+import { PlusCircle, Edit3, Trash2, Search, FileText, Eye, Filter, Download, X } from 'lucide-react';
 import { formatCurrency, formatDateForDisplay } from '../../utils/formatting';
 
 const InvoiceListPage: React.FC = () => {
@@ -15,6 +15,12 @@ const InvoiceListPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
+
+  // Filters
+  const [filterClientId, setFilterClientId] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
   const fetchInvoicesAndClients = useCallback(async () => {
     setIsLoading(true);
@@ -61,12 +67,55 @@ const InvoiceListPage: React.FC = () => {
     }
   };
 
+  const hasActiveFilters = filterClientId || filterDateFrom || filterDateTo;
+
+  const clearFilters = () => {
+    setFilterClientId('');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+  };
+
   const filteredInvoices = invoices.filter(invoice => {
     const clientName = getClientName(invoice.clientId).toLowerCase();
     const invoiceNumber = invoice.invoiceNumber.toLowerCase();
     const searchTermLower = searchTerm.toLowerCase();
-    return clientName.includes(searchTermLower) || invoiceNumber.includes(searchTermLower);
+    const matchesSearch = clientName.includes(searchTermLower) || invoiceNumber.includes(searchTermLower);
+
+    const matchesClient = !filterClientId || invoice.clientId === filterClientId;
+
+    const invoiceDate = invoice.date ? invoice.date.split('T')[0] : '';
+    const matchesFrom = !filterDateFrom || invoiceDate >= filterDateFrom;
+    const matchesTo = !filterDateTo || invoiceDate <= filterDateTo;
+
+    return matchesSearch && matchesClient && matchesFrom && matchesTo;
   });
+
+  const exportToCSV = () => {
+    const rows = filteredInvoices.map(invoice => ({
+      'Factura #': invoice.invoiceNumber,
+      'Cliente': getClientName(invoice.clientId),
+      'Fecha': formatDateForDisplay(invoice.date),
+      'Total': calculateInvoiceTotal(invoice),
+    }));
+
+    const totalGeneral = filteredInvoices.reduce((sum, inv) => sum + calculateInvoiceTotal(inv), 0);
+
+    const headers = Object.keys(rows[0] || { 'Factura #': '', 'Cliente': '', 'Fecha': '', 'Total': '' });
+    const csvLines = [
+      headers.join(','),
+      ...rows.map(row => headers.map(h => `"${(row as any)[h]}"`).join(',')),
+      '',
+      `"Total General","","","${totalGeneral}"`,
+    ];
+
+    const blob = new Blob(['﻿' + csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `facturas_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-64"><LoadingSpinner size={12} /></div>;
@@ -82,40 +131,128 @@ const InvoiceListPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-secondary-800">Facturas</h2>
-          <p className="text-sm text-secondary-400 mt-0.5">{invoices.length} facturas registradas</p>
+          <p className="text-sm text-secondary-400 mt-0.5">
+            {filteredInvoices.length} de {invoices.length} facturas
+          </p>
         </div>
-        <Link
-          to="/invoices/new"
-          className="bg-gradient-to-r from-primary to-primary-700 hover:from-primary-600 hover:to-primary-800 text-white font-semibold py-2.5 px-5 rounded-xl shadow-lg hover:shadow-glow flex items-center transition-all w-full sm:w-auto justify-center text-sm"
-        >
-          <PlusCircle size={18} className="mr-2" />
-          Crear Factura
-        </Link>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={exportToCSV}
+            disabled={filteredInvoices.length === 0}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-secondary-200 text-secondary-700 hover:bg-secondary-50 rounded-xl text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+            title="Exportar a CSV"
+          >
+            <Download size={16} />
+            <span className="hidden sm:inline">Exportar CSV</span>
+          </button>
+          <Link
+            to="/invoices/new"
+            className="bg-gradient-to-r from-primary to-primary-700 hover:from-primary-600 hover:to-primary-800 text-white font-semibold py-2.5 px-5 rounded-xl shadow-lg hover:shadow-glow flex items-center transition-all flex-1 sm:flex-none justify-center text-sm"
+          >
+            <PlusCircle size={18} className="mr-2" />
+            Crear Factura
+          </Link>
+        </div>
       </div>
 
-      {/* Search */}
-      <div className="bg-white p-3 rounded-2xl shadow-card border border-secondary-100">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Buscar facturas por número o nombre de cliente..."
-            className="w-full p-3 pl-10 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            aria-label="Buscar facturas"
-          />
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400" size={18} />
+      {/* Search + Filters bar */}
+      <div className="bg-white p-3 rounded-2xl shadow-card border border-secondary-100 space-y-3">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="Buscar por número o cliente..."
+              className="w-full p-3 pl-10 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Buscar facturas"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400" size={18} />
+          </div>
+          <button
+            onClick={() => setShowFilters(v => !v)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+              showFilters || hasActiveFilters
+                ? 'bg-primary-50 border-primary-300 text-primary-700'
+                : 'bg-white border-secondary-200 text-secondary-600 hover:bg-secondary-50'
+            }`}
+          >
+            <Filter size={16} />
+            <span className="hidden sm:inline">Filtros</span>
+            {hasActiveFilters && (
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            )}
+          </button>
         </div>
+
+        {showFilters && (
+          <div className="pt-2 border-t border-secondary-100 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fadeIn">
+            <div>
+              <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-wider mb-1">Cliente</label>
+              <select
+                value={filterClientId}
+                onChange={e => setFilterClientId(e.target.value)}
+                className="w-full p-2.5 border border-secondary-200 rounded-xl bg-white focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
+              >
+                <option value="">Todos los clientes</option>
+                {clients.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-wider mb-1">Fecha desde</label>
+              <input
+                type="date"
+                value={filterDateFrom}
+                onChange={e => setFilterDateFrom(e.target.value)}
+                className="w-full p-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-wider mb-1">Fecha hasta</label>
+              <input
+                type="date"
+                value={filterDateTo}
+                onChange={e => setFilterDateTo(e.target.value)}
+                className="w-full p-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
+              />
+            </div>
+            {hasActiveFilters && (
+              <div className="sm:col-span-3 flex justify-end">
+                <button
+                  onClick={clearFilters}
+                  className="flex items-center gap-1.5 text-sm text-secondary-500 hover:text-danger transition-colors"
+                >
+                  <X size={14} />
+                  Limpiar filtros
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Summary row */}
+      {filteredInvoices.length > 0 && (
+        <div className="flex justify-end">
+          <div className="bg-white px-4 py-2 rounded-xl border border-secondary-100 shadow-sm text-sm">
+            <span className="text-secondary-500">Total mostrado: </span>
+            <span className="font-bold text-secondary-800">
+              {formatCurrency(filteredInvoices.reduce((s, inv) => s + calculateInvoiceTotal(inv), 0))}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Table or Empty State */}
-      {filteredInvoices.length === 0 && !isLoading ? (
+      {filteredInvoices.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl shadow-card border border-secondary-100">
           <div className="w-16 h-16 bg-secondary-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <FileText size={28} className="text-secondary-400" />
           </div>
           <p className="text-secondary-700 text-lg font-semibold">No se encontraron facturas</p>
-          <p className="text-secondary-400 text-sm mt-1">Intenta ajustar tu búsqueda o crea una nueva factura.</p>
+          <p className="text-secondary-400 text-sm mt-1">Ajusta los filtros o crea una nueva factura.</p>
         </div>
       ) : (
         <div className="bg-white shadow-card rounded-2xl overflow-hidden border border-secondary-100">
