@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Invoice, Client } from '../../types';
 import { getInvoices, deleteInvoice as apiDeleteInvoice } from '../../services/invoiceService';
 import { getClients } from '../../services/clientService';
@@ -13,14 +13,34 @@ const InvoiceListPage: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
 
-  // Filters
-  const [filterClientId, setFilterClientId] = useState('');
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  // Filters persisted in the URL so they survive navigation
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchTerm    = searchParams.get('q')      ?? '';
+  const filterClientId = searchParams.get('client') ?? '';
+  const filterDateFrom = searchParams.get('from')   ?? '';
+  const filterDateTo   = searchParams.get('to')     ?? '';
+  const showFilters    = !!(filterClientId || filterDateFrom || filterDateTo || searchParams.get('filters') === '1');
+
+  const setParam = (key: string, value: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value) next.set(key, value); else next.delete(key);
+      return next;
+    }, { replace: true });
+  };
+
+  const toggleFilters = () => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      const visible = next.get('filters') === '1' || filterClientId || filterDateFrom || filterDateTo;
+      if (visible) next.set('filters', '0'); else next.set('filters', '1');
+      return next;
+    }, { replace: true });
+  };
+
+  const showFiltersPanel = showFilters || searchParams.get('filters') === '1';
 
   const fetchInvoicesAndClients = useCallback(async () => {
     setIsLoading(true);
@@ -70,9 +90,13 @@ const InvoiceListPage: React.FC = () => {
   const hasActiveFilters = filterClientId || filterDateFrom || filterDateTo;
 
   const clearFilters = () => {
-    setFilterClientId('');
-    setFilterDateFrom('');
-    setFilterDateTo('');
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.delete('client');
+      next.delete('from');
+      next.delete('to');
+      return next;
+    }, { replace: true });
   };
 
   const filteredInvoices = invoices.filter(invoice => {
@@ -164,15 +188,15 @@ const InvoiceListPage: React.FC = () => {
               placeholder="Buscar por número o cliente..."
               className="w-full p-3 pl-10 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setParam('q', e.target.value)}
               aria-label="Buscar facturas"
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400" size={18} />
           </div>
           <button
-            onClick={() => setShowFilters(v => !v)}
+            onClick={toggleFilters}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
-              showFilters || hasActiveFilters
+              showFiltersPanel || hasActiveFilters
                 ? 'bg-primary-50 border-primary-300 text-primary-700'
                 : 'bg-white border-secondary-200 text-secondary-600 hover:bg-secondary-50'
             }`}
@@ -185,13 +209,13 @@ const InvoiceListPage: React.FC = () => {
           </button>
         </div>
 
-        {showFilters && (
+        {showFiltersPanel && (
           <div className="pt-2 border-t border-secondary-100 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fadeIn">
             <div>
               <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-wider mb-1">Cliente</label>
               <select
                 value={filterClientId}
-                onChange={e => setFilterClientId(e.target.value)}
+                onChange={e => setParam('client', e.target.value)}
                 className="w-full p-2.5 border border-secondary-200 rounded-xl bg-white focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
               >
                 <option value="">Todos los clientes</option>
@@ -205,7 +229,7 @@ const InvoiceListPage: React.FC = () => {
               <input
                 type="date"
                 value={filterDateFrom}
-                onChange={e => setFilterDateFrom(e.target.value)}
+                onChange={e => setParam('from', e.target.value)}
                 className="w-full p-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
               />
             </div>
@@ -214,7 +238,7 @@ const InvoiceListPage: React.FC = () => {
               <input
                 type="date"
                 value={filterDateTo}
-                onChange={e => setFilterDateTo(e.target.value)}
+                onChange={e => setParam('to', e.target.value)}
                 className="w-full p-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
               />
             </div>
