@@ -7,6 +7,15 @@ const parseOptionalFloat = (value) => {
   return isNaN(num) ? null : num;
 };
 
+exports.getAllPayments = async (req, res, next) => {
+  try {
+    const [payments] = await db.query('SELECT * FROM payments ORDER BY date DESC');
+    res.json(payments);
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.createPayment = async (req, res, next) => {
   try {
     const { clientId, amount, date, method, notes, proofUrl } = req.body;

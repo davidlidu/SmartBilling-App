@@ -5,7 +5,7 @@ import { getAllPayments } from '../services/paymentService';
 import { Invoice, Client, Payment } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { formatCurrency, formatDateForDisplay } from '../utils/formatting';
-import { BarChart2, Users, FileText, TrendingUp, DollarSign, AlertCircle } from 'lucide-react';
+import { BarChart2, Users, FileText, TrendingUp, DollarSign, AlertCircle, X } from 'lucide-react';
 
 const MONTHS_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
@@ -24,6 +24,7 @@ const ReportsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [yearFilter, setYearFilter] = useState<number>(new Date().getFullYear());
+  const [filterClientId, setFilterClientId] = useState('');
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -49,9 +50,23 @@ const ReportsPage: React.FC = () => {
 
   const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.name || 'N/A';
 
-  // ── Filtered invoices for selected year ──
-  const invoicesInYear = invoices.filter(inv => {
+  // ── Apply client filter to base data ──
+  const filteredInvoices = filterClientId
+    ? invoices.filter(inv => inv.clientId === filterClientId)
+    : invoices;
+
+  const filteredPayments = filterClientId
+    ? payments.filter(p => p.clientId === filterClientId)
+    : payments;
+
+  // ── Filtered by year (on top of client filter) ──
+  const invoicesInYear = filteredInvoices.filter(inv => {
     const y = new Date(inv.date.split('T')[0]).getFullYear();
+    return y === yearFilter;
+  });
+
+  const paymentsInYear = filteredPayments.filter(p => {
+    const y = new Date(p.date.split('T')[0]).getFullYear();
     return y === yearFilter;
   });
 
@@ -63,38 +78,36 @@ const ReportsPage: React.FC = () => {
   });
   const maxMonthRevenue = Math.max(...revenueByMonth, 1);
 
-  // ── Top clients by invoiced total ──
-  const clientTotals: Record<string, number> = {};
-  invoices.forEach(inv => {
-    const cid = inv.clientId;
-    clientTotals[cid] = (clientTotals[cid] || 0) + calculateTotal(inv);
-  });
-  const topClients = Object.entries(clientTotals)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
-  const maxClientTotal = topClients.length > 0 ? topClients[0][1] : 1;
-
-  // ── Payments by month (selected year) ──
-  const paymentsInYear = payments.filter(p => {
-    const y = new Date(p.date.split('T')[0]).getFullYear();
-    return y === yearFilter;
-  });
+  // ── Payments by month ──
   const paidByMonth: number[] = Array(12).fill(0);
   paymentsInYear.forEach(p => {
     const m = new Date(p.date.split('T')[0]).getMonth();
     paidByMonth[m] += Number(p.amount);
   });
 
+  // ── Top clients (always global, no client filter applied) ──
+  const clientTotals: Record<string, number> = {};
+  invoices.forEach(inv => {
+    clientTotals[inv.clientId] = (clientTotals[inv.clientId] || 0) + calculateTotal(inv);
+  });
+  const topClients = Object.entries(clientTotals)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+  const maxClientTotal = topClients.length > 0 ? topClients[0][1] : 1;
+
   // ── Summary stats ──
-  const totalRevenue = invoices.reduce((s, inv) => s + calculateTotal(inv), 0);
-  const totalPaid = payments.reduce((s, p) => s + Number(p.amount), 0);
-  const totalPending = totalRevenue - totalPaid;
+  const totalRevenue = filteredInvoices.reduce((s, inv) => s + calculateTotal(inv), 0);
+  const totalPaid = filteredPayments.reduce((s, p) => s + Number(p.amount), 0);
+  const totalPending = Math.max(0, totalRevenue - totalPaid);
   const totalRevenueYear = invoicesInYear.reduce((s, inv) => s + calculateTotal(inv), 0);
+  const totalPaidYear = paymentsInYear.reduce((s, p) => s + Number(p.amount), 0);
 
   const availableYears = Array.from(
     new Set(invoices.map(inv => new Date(inv.date.split('T')[0]).getFullYear()))
   ).sort((a, b) => b - a);
   if (!availableYears.includes(yearFilter)) availableYears.unshift(yearFilter);
+
+  const selectedClient = clients.find(c => c.id === filterClientId);
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-64"><LoadingSpinner size={12} /></div>;
@@ -108,7 +121,7 @@ const ReportsPage: React.FC = () => {
           <h2 className="text-2xl font-bold text-secondary-800">Reportes</h2>
           <p className="text-sm text-secondary-400 mt-0.5">Resumen financiero y estadísticas</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <label className="text-sm text-secondary-500 font-medium">Año:</label>
           <select
             value={yearFilter}
@@ -118,6 +131,41 @@ const ReportsPage: React.FC = () => {
             {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
+      </div>
+
+      {/* Client filter bar */}
+      <div className="bg-white p-4 rounded-2xl shadow-card border border-secondary-100">
+        <div className="flex items-center gap-3">
+          <Users size={16} className="text-secondary-400 flex-shrink-0" />
+          <label className="text-sm font-semibold text-secondary-600 flex-shrink-0">Filtrar por cliente:</label>
+          <select
+            value={filterClientId}
+            onChange={e => setFilterClientId(e.target.value)}
+            className="flex-1 p-2 border border-secondary-200 rounded-xl bg-white focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
+          >
+            <option value="">Todos los clientes</option>
+            {clients.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          {filterClientId && (
+            <button
+              onClick={() => setFilterClientId('')}
+              className="flex items-center gap-1.5 text-sm text-secondary-400 hover:text-danger transition-colors flex-shrink-0"
+              title="Quitar filtro"
+            >
+              <X size={16} />
+              <span className="hidden sm:inline">Limpiar</span>
+            </button>
+          )}
+        </div>
+        {selectedClient && (
+          <div className="mt-3 pt-3 border-t border-secondary-100 flex flex-wrap gap-4 text-xs text-secondary-500">
+            <span><span className="font-semibold text-secondary-700">NIT/CC:</span> {selectedClient.nitOrCc}</span>
+            <span><span className="font-semibold text-secondary-700">Ciudad:</span> {selectedClient.city}</span>
+            <span><span className="font-semibold text-secondary-700">Teléfono:</span> {selectedClient.phone}</span>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -137,7 +185,7 @@ const ReportsPage: React.FC = () => {
             </div>
           </div>
           <p className="text-xl font-bold text-secondary-800">{formatCurrency(totalRevenue)}</p>
-          <p className="text-xs text-secondary-400 mt-1">{invoices.length} facturas</p>
+          <p className="text-xs text-secondary-400 mt-1">{filteredInvoices.length} facturas</p>
         </div>
 
         <div className="bg-white p-5 rounded-2xl shadow-card border border-secondary-100">
@@ -148,7 +196,7 @@ const ReportsPage: React.FC = () => {
             </div>
           </div>
           <p className="text-xl font-bold text-success-dark">{formatCurrency(totalPaid)}</p>
-          <p className="text-xs text-secondary-400 mt-1">{payments.length} pagos</p>
+          <p className="text-xs text-secondary-400 mt-1">{filteredPayments.length} pagos</p>
         </div>
 
         <div className="bg-white p-5 rounded-2xl shadow-card border border-secondary-100">
@@ -158,19 +206,25 @@ const ReportsPage: React.FC = () => {
               <AlertCircle size={18} className="text-danger" />
             </div>
           </div>
-          <p className="text-xl font-bold text-danger">{formatCurrency(Math.max(0, totalPending))}</p>
+          <p className="text-xl font-bold text-danger">{formatCurrency(totalPending)}</p>
           <p className="text-xs text-secondary-400 mt-1">por cobrar</p>
         </div>
 
         <div className="bg-white p-5 rounded-2xl shadow-card border border-secondary-100">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold text-secondary-500 uppercase tracking-wider">Clientes</p>
+            <p className="text-xs font-semibold text-secondary-500 uppercase tracking-wider">
+              {filterClientId ? 'Cliente' : 'Clientes'}
+            </p>
             <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
               <Users size={18} className="text-blue-600" />
             </div>
           </div>
-          <p className="text-xl font-bold text-secondary-800">{clients.length}</p>
-          <p className="text-xs text-secondary-400 mt-1">registrados</p>
+          <p className="text-xl font-bold text-secondary-800">
+            {filterClientId ? 1 : clients.length}
+          </p>
+          <p className="text-xs text-secondary-400 mt-1 truncate">
+            {filterClientId ? (selectedClient?.name || 'seleccionado') : 'registrados'}
+          </p>
         </div>
       </div>
 
@@ -181,6 +235,11 @@ const ReportsPage: React.FC = () => {
             <h3 className="font-bold text-secondary-800 flex items-center gap-2">
               <BarChart2 size={18} className="text-primary" />
               Facturación mensual {yearFilter}
+              {selectedClient && (
+                <span className="text-xs font-normal bg-primary-50 text-primary-700 px-2 py-0.5 rounded-lg">
+                  {selectedClient.name}
+                </span>
+              )}
             </h3>
             <p className="text-xs text-secondary-400 mt-0.5">Total: {formatCurrency(totalRevenueYear)}</p>
           </div>
@@ -229,54 +288,104 @@ const ReportsPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Clients */}
-        <div className="bg-white p-6 rounded-2xl shadow-card border border-secondary-100">
-          <h3 className="font-bold text-secondary-800 flex items-center gap-2 mb-5">
-            <TrendingUp size={18} className="text-primary" />
-            Top clientes por facturación
-          </h3>
-          {topClients.length === 0 ? (
-            <p className="text-secondary-400 text-sm text-center py-8">Sin datos</p>
-          ) : (
-            <div className="space-y-3">
-              {topClients.map(([clientId, total], idx) => (
-                <div key={clientId}>
-                  <div className="flex justify-between items-center mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-secondary-400 w-4">{idx + 1}.</span>
-                      <span className="text-sm font-medium text-secondary-700 truncate max-w-[160px]">{getClientName(clientId)}</span>
+        {/* Top Clients — only shown when no client filter active */}
+        {!filterClientId ? (
+          <div className="bg-white p-6 rounded-2xl shadow-card border border-secondary-100">
+            <h3 className="font-bold text-secondary-800 flex items-center gap-2 mb-5">
+              <TrendingUp size={18} className="text-primary" />
+              Top clientes por facturación
+            </h3>
+            {topClients.length === 0 ? (
+              <p className="text-secondary-400 text-sm text-center py-8">Sin datos</p>
+            ) : (
+              <div className="space-y-3">
+                {topClients.map(([clientId, total], idx) => (
+                  <div key={clientId}>
+                    <div className="flex justify-between items-center mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-secondary-400 w-4">{idx + 1}.</span>
+                        <button
+                          className="text-sm font-medium text-secondary-700 hover:text-primary transition-colors truncate max-w-[160px] text-left"
+                          onClick={() => setFilterClientId(clientId)}
+                          title="Filtrar por este cliente"
+                        >
+                          {getClientName(clientId)}
+                        </button>
+                      </div>
+                      <span className="text-sm font-bold text-secondary-800">{formatCurrency(total)}</span>
                     </div>
-                    <span className="text-sm font-bold text-secondary-800">{formatCurrency(total)}</span>
+                    <div className="w-full h-2 bg-secondary-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-primary to-primary-400 rounded-full transition-all"
+                        style={{ width: `${(total / maxClientTotal) * 100}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full h-2 bg-secondary-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-primary to-primary-400 rounded-full transition-all"
-                      style={{ width: `${(total / maxClientTotal) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Client detail card when filtered */
+          <div className="bg-white p-6 rounded-2xl shadow-card border border-secondary-100">
+            <h3 className="font-bold text-secondary-800 flex items-center gap-2 mb-5">
+              <Users size={18} className="text-primary" />
+              Detalle del cliente
+            </h3>
+            <div className="space-y-3">
+              <div className="flex justify-between py-2 border-b border-secondary-50">
+                <span className="text-sm text-secondary-500">Nombre</span>
+                <span className="text-sm font-semibold text-secondary-800">{selectedClient?.name}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-secondary-50">
+                <span className="text-sm text-secondary-500">NIT / CC</span>
+                <span className="text-sm font-semibold text-secondary-800">{selectedClient?.nitOrCc}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-secondary-50">
+                <span className="text-sm text-secondary-500">Ciudad</span>
+                <span className="text-sm font-semibold text-secondary-800">{selectedClient?.city}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-secondary-50">
+                <span className="text-sm text-secondary-500">Total facturas</span>
+                <span className="text-sm font-bold text-secondary-800">{filteredInvoices.length}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-secondary-50">
+                <span className="text-sm text-secondary-500">Total facturado</span>
+                <span className="text-sm font-bold text-secondary-800">{formatCurrency(totalRevenue)}</span>
+              </div>
+              <div className="flex justify-between py-2 border-b border-secondary-50">
+                <span className="text-sm text-secondary-500">Total pagado</span>
+                <span className="text-sm font-bold text-success-dark">{formatCurrency(totalPaid)}</span>
+              </div>
+              <div className="flex justify-between py-2">
+                <span className="text-sm text-secondary-500">Saldo pendiente</span>
+                <span className={`text-sm font-bold ${totalPending > 0 ? 'text-danger' : 'text-secondary-400'}`}>
+                  {formatCurrency(totalPending)}
+                </span>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Recent Invoices Summary */}
+        {/* Recent Invoices */}
         <div className="bg-white p-6 rounded-2xl shadow-card border border-secondary-100">
           <h3 className="font-bold text-secondary-800 flex items-center gap-2 mb-5">
             <FileText size={18} className="text-primary" />
-            Últimas 5 facturas
+            {filterClientId ? 'Últimas facturas del cliente' : 'Últimas 5 facturas'}
           </h3>
-          {invoices.length === 0 ? (
+          {filteredInvoices.length === 0 ? (
             <p className="text-secondary-400 text-sm text-center py-8">Sin datos</p>
           ) : (
             <div className="space-y-2">
-              {invoices.slice(0, 5).map(inv => (
+              {filteredInvoices.slice(0, 5).map(inv => (
                 <div key={inv.id} className="flex items-center justify-between py-2 border-b border-secondary-50 last:border-0">
                   <div>
                     <span className="text-xs bg-primary-50 text-primary-700 px-2 py-0.5 rounded-lg font-bold mr-2">
                       #{inv.invoiceNumber}
                     </span>
-                    <span className="text-sm text-secondary-600">{getClientName(inv.clientId)}</span>
+                    {!filterClientId && (
+                      <span className="text-sm text-secondary-600">{getClientName(inv.clientId)}</span>
+                    )}
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-secondary-800">{formatCurrency(calculateTotal(inv))}</p>
@@ -289,11 +398,16 @@ const ReportsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Invoice count per month table */}
+      {/* Monthly summary table */}
       <div className="bg-white p-6 rounded-2xl shadow-card border border-secondary-100">
         <h3 className="font-bold text-secondary-800 flex items-center gap-2 mb-5">
           <BarChart2 size={18} className="text-primary" />
           Resumen mensual {yearFilter}
+          {selectedClient && (
+            <span className="text-xs font-normal bg-primary-50 text-primary-700 px-2 py-0.5 rounded-lg">
+              {selectedClient.name}
+            </span>
+          )}
         </h3>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -325,19 +439,22 @@ const ReportsPage: React.FC = () => {
                   </tr>
                 );
               })}
+              {invoicesInYear.length === 0 && paymentsInYear.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-secondary-400 text-sm">
+                    Sin datos para {yearFilter}{selectedClient ? ` — ${selectedClient.name}` : ''}
+                  </td>
+                </tr>
+              )}
             </tbody>
             <tfoot>
               <tr className="bg-secondary-50 border-t-2 border-secondary-200">
                 <td className="px-4 py-3 font-bold text-secondary-800">Total {yearFilter}</td>
-                <td className="px-4 py-3 text-right font-bold text-secondary-700">
-                  {invoicesInYear.length}
-                </td>
+                <td className="px-4 py-3 text-right font-bold text-secondary-700">{invoicesInYear.length}</td>
                 <td className="px-4 py-3 text-right font-bold text-secondary-800">{formatCurrency(totalRevenueYear)}</td>
-                <td className="px-4 py-3 text-right font-bold text-success-dark">
-                  {formatCurrency(paymentsInYear.reduce((s, p) => s + Number(p.amount), 0))}
-                </td>
-                <td className="px-4 py-3 text-right font-bold text-danger">
-                  {formatCurrency(Math.max(0, totalRevenueYear - paymentsInYear.reduce((s, p) => s + Number(p.amount), 0)))}
+                <td className="px-4 py-3 text-right font-bold text-success-dark">{formatCurrency(totalPaidYear)}</td>
+                <td className={`px-4 py-3 text-right font-bold ${totalRevenueYear - totalPaidYear > 0 ? 'text-danger' : 'text-secondary-400'}`}>
+                  {formatCurrency(Math.max(0, totalRevenueYear - totalPaidYear))}
                 </td>
               </tr>
             </tfoot>
