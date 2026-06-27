@@ -67,18 +67,18 @@ app.use((err, req, res, next) => {
   res.status(500).send({ message: err.message || 'Algo salió mal en el servidor!', detail: err.message });
 });
 
-// Test DB
-db.getConnection()
-  .then(c => {
-    console.log('✅ Conexión MySQL OK');
-    c.release();
-  })
-  .catch(err => {
-    console.error('❌ Error MySQL');
+// Start server (esperando a que la BD esté lista, con reintentos)
+async function start() {
+  try {
+    await db.waitForDatabase();
+    app.listen(PORT, () => {
+      console.log(`🚀 Backend escuchando en puerto ${PORT}`);
+    });
+  } catch (err) {
+    console.error('🚨 No se pudo conectar a MySQL tras varios intentos. Abortando arranque.');
     console.error(err);
-  });
+    process.exit(1); // Dokploy/Docker reiniciará el contenedor automáticamente
+  }
+}
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Backend escuchando en puerto ${PORT}`);
-});
+start();
