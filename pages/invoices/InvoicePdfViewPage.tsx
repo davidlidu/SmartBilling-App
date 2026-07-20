@@ -16,6 +16,16 @@ const InvoicePdfViewPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const autoDownload = searchParams.get('download');
 
+  // Preserve the list filters (client / date range / search) when going back,
+  // dropping the view-only 'download' flag.
+  const backSearch = (() => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('download');
+    const qs = params.toString();
+    return qs ? `?${qs}` : '';
+  })();
+  const backToList = `/invoices${backSearch}`;
+
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [configuredSender, setConfiguredSender] = useState<SenderDetails>(DEFAULT_SENDER_DETAILS);
@@ -105,7 +115,7 @@ const InvoicePdfViewPage: React.FC = () => {
     return (
       <div className="p-6 text-center">
         <p className="text-danger bg-danger-50 p-4 rounded-2xl text-xl border border-danger/20">{error}</p>
-        <Link to="/invoices" className="mt-4 inline-block bg-primary text-white px-5 py-2.5 rounded-xl hover:bg-primary-dark transition-colors font-medium">
+        <Link to={backToList} className="mt-4 inline-block bg-primary text-white px-5 py-2.5 rounded-xl hover:bg-primary-dark transition-colors font-medium">
           Volver a Facturas
         </Link>
       </div>
@@ -118,7 +128,7 @@ const InvoicePdfViewPage: React.FC = () => {
     return (
       <div className="p-6 text-center">
         <p className="text-secondary-500">Datos de factura o cliente no disponibles.</p>
-        <Link to="/invoices" className="mt-4 inline-block bg-primary text-white px-5 py-2.5 rounded-xl hover:bg-primary-dark transition-colors font-medium">
+        <Link to={backToList} className="mt-4 inline-block bg-primary text-white px-5 py-2.5 rounded-xl hover:bg-primary-dark transition-colors font-medium">
           Volver a Facturas
         </Link>
       </div>
@@ -130,7 +140,7 @@ const InvoicePdfViewPage: React.FC = () => {
   return (
     <div className="bg-secondary-100 min-h-screen py-8 px-4">
       <div className="max-w-4xl mx-auto mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 animate-fadeIn">
-        <Link to="/invoices" className="text-secondary-500 hover:text-primary p-2 rounded-xl hover:bg-white flex items-center transition-colors font-medium text-sm">
+        <Link to={backToList} className="text-secondary-500 hover:text-primary p-2 rounded-xl hover:bg-white flex items-center transition-colors font-medium text-sm">
           <ArrowLeft size={18} className="mr-1" /> Volver al Listado
         </Link>
 

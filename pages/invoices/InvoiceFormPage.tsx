@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { Invoice, Client, LineItem, SenderDetails } from '../../types';
 import { getInvoiceById, createInvoice, updateInvoice, getNextInvoiceNumber } from '../../services/invoiceService';
 import { getClients } from '../../services/clientService';
@@ -13,6 +13,9 @@ import { Save, Plus, Trash2, ArrowLeft, Hash, Calendar, UserCheck, Package } fro
 const InvoiceFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Preserve list filters (client / date range / search) carried in the URL.
+  const backToList = `/invoices${location.search || ''}`;
   const [invoice, setInvoice] = useState<Partial<Invoice>>({
     invoiceNumber: '',
     date: formatDateForInput(new Date()),
@@ -149,7 +152,7 @@ const InvoiceFormPage: React.FC = () => {
       } else {
         await createInvoice(payload);
       }
-      navigate('/invoices');
+      navigate(backToList);
     } catch (err: any) {
       console.error(err);
       setError(err.message || `Error al ${isEditing ? 'actualizar' : 'crear'} la factura.`);
@@ -163,14 +166,14 @@ const InvoiceFormPage: React.FC = () => {
   }
 
   if (error && !isEditing && clients.length === 0 && !isPageLoading) {
-    return <div className="text-danger bg-danger-50 p-4 rounded-2xl border border-danger/20">{error} <Link to="/invoices" className="underline ml-2 font-medium">Volver al listado</Link></div>;
+    return <div className="text-danger bg-danger-50 p-4 rounded-2xl border border-danger/20">{error} <Link to={backToList} className="underline ml-2 font-medium">Volver al listado</Link></div>;
   }
 
   return (
     <div className="container mx-auto pb-10 max-w-5xl animate-fadeIn">
       {/* Header */}
       <div className="flex items-center mb-6">
-        <Link to="/invoices" className="text-secondary-400 hover:text-primary p-2 rounded-xl hover:bg-primary-50 transition-colors">
+        <Link to={backToList} className="text-secondary-400 hover:text-primary p-2 rounded-xl hover:bg-primary-50 transition-colors">
           <ArrowLeft size={22} />
         </Link>
         <div className="ml-3">

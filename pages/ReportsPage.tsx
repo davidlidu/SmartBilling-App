@@ -4,8 +4,16 @@ import { getClients } from '../services/clientService';
 import { getAllPayments } from '../services/paymentService';
 import { Invoice, Client, Payment } from '../types';
 import LoadingSpinner from '../components/LoadingSpinner';
+import Modal from '../components/Modal';
 import { formatCurrency, formatDateForDisplay } from '../utils/formatting';
-import { BarChart2, Users, FileText, TrendingUp, DollarSign, AlertCircle, X } from 'lucide-react';
+import {
+  PERIOD_OPTIONS,
+  PeriodKey,
+  getPeriodRange,
+  filterInvoicesByPeriod,
+  exportInvoicesToCSV,
+} from '../utils/exportInvoices';
+import { BarChart2, Users, FileText, TrendingUp, DollarSign, AlertCircle, X, Download } from 'lucide-react';
 
 const MONTHS_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
@@ -25,6 +33,12 @@ const ReportsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [yearFilter, setYearFilter] = useState<number>(new Date().getFullYear());
   const [filterClientId, setFilterClientId] = useState('');
+
+  // ── Exportación de reportes por período ──
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportPeriod, setExportPeriod] = useState<PeriodKey>('month');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -109,6 +123,25 @@ const ReportsPage: React.FC = () => {
 
   const selectedClient = clients.find(c => c.id === filterClientId);
 
+  // ── Vista previa del rango a exportar ──
+  const exportRange = getPeriodRange(exportPeriod, customFrom, customTo);
+  const invoicesToExport = filterInvoicesByPeriod(invoices, exportRange, filterClientId);
+  const exportTotal = invoicesToExport.reduce((s, inv) => s + calculateTotal(inv), 0);
+  const isCustomIncomplete = exportPeriod === 'custom' && (!customFrom || !customTo);
+
+  const handleExport = () => {
+    if (isCustomIncomplete || invoicesToExport.length === 0) return;
+    const periodLabel = PERIOD_OPTIONS.find(o => o.key === exportPeriod)?.label || 'reporte';
+    const clientPart = selectedClient ? `-${selectedClient.name}` : '';
+    exportInvoicesToCSV(
+      invoicesToExport,
+      clients,
+      exportRange,
+      `${periodLabel}${clientPart}`.replace(/\s+/g, '-')
+    );
+    setShowExportModal(false);
+  };
+
   if (isLoading) {
     return <div className="flex justify-center items-center h-64"><LoadingSpinner size={12} /></div>;
   }
@@ -130,6 +163,14 @@ const ReportsPage: React.FC = () => {
           >
             {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-primary to-primary-700 hover:from-primary-600 hover:to-primary-800 text-white rounded-xl text-sm font-semibold shadow-md hover:shadow-glow transition-all"
+            title="Exportar reporte de facturas"
+          >
+            <Download size={16} />
+            <span className="hidden sm:inline">Exportar</span>
+          </button>
         </div>
       </div>
 
@@ -461,6 +502,115 @@ const ReportsPage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Export Modal */}
+      <Modal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        title="Exportar reporte de facturas"
+        size="lg"
+        footer={
+          <>
+            <button
+              onClick={() => setShowExportModal(false)}
+              className="px-4 py-2.5 bg-secondary-100 text-secondary-700 rounded-xl hover:bg-secondary-200 transition-colors text-sm font-medium"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleExport}
+              disabled={isCustomIncomplete || invoicesToExport.length === 0}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-primary-700 hover:from-primary-600 hover:to-primary-800 text-white rounded-xl transition-all text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Download size={16} />
+              Descargar CSV
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-wider mb-2">
+              Período
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {PERIOD_OPTIONS.map(opt => (
+                <button
+                  key={opt.key}
+                  onClick={() => setExportPeriod(opt.key)}
+                  className={`px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors text-left ${
+                    exportPeriod === opt.key
+                      ? 'bg-primary-50 border-primary-300 text-primary-700'
+                      : 'bg-white border-secondary-200 text-secondary-600 hover:bg-secondary-50'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {exportPeriod === 'custom' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-fadeIn">
+              <div>
+                <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-wider mb-1">
+                  Desde
+                </label>
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={e => setCustomFrom(e.target.value)}
+                  className="w-full p-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-secondary-500 uppercase tracking-wider mb-1">
+                  Hasta
+                </label>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={e => setCustomTo(e.target.value)}
+                  className="w-full p-2.5 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Resumen de lo que se exportará */}
+          <div className="bg-secondary-50 rounded-xl p-4 border border-secondary-100 space-y-2">
+            {selectedClient && (
+              <div className="flex justify-between text-sm">
+                <span className="text-secondary-500">Cliente</span>
+                <span className="font-semibold text-secondary-800">{selectedClient.name}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm">
+              <span className="text-secondary-500">Rango</span>
+              <span className="font-semibold text-secondary-800">
+                {isCustomIncomplete
+                  ? 'Selecciona ambas fechas'
+                  : `${formatDateForDisplay(exportRange.from)} — ${formatDateForDisplay(exportRange.to)}`}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-secondary-500">Facturas</span>
+              <span className="font-semibold text-secondary-800">{invoicesToExport.length}</span>
+            </div>
+            <div className="flex justify-between text-sm pt-2 border-t border-secondary-200">
+              <span className="text-secondary-500">Total</span>
+              <span className="font-bold text-secondary-800">{formatCurrency(exportTotal)}</span>
+            </div>
+          </div>
+
+          {!isCustomIncomplete && invoicesToExport.length === 0 && (
+            <p className="text-sm text-secondary-400 flex items-center gap-2">
+              <AlertCircle size={16} className="text-secondary-400" />
+              No hay facturas en el período seleccionado.
+            </p>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };

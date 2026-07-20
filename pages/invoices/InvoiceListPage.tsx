@@ -305,14 +305,14 @@ const InvoiceListPage: React.FC = () => {
                     <td className="px-5 py-4 text-sm">
                       <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                         <Link
-                          to={`/invoices/${invoice.id}/view`}
+                          to={{ pathname: `/invoices/${invoice.id}/view`, search: searchParams.toString() }}
                           className="p-2 text-secondary-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Ver Factura"
                         >
                           <Eye size={16} />
                         </Link>
                         <Link
-                          to={`/invoices/${invoice.id}/edit`}
+                          to={{ pathname: `/invoices/${invoice.id}/edit`, search: searchParams.toString() }}
                           className="p-2 text-secondary-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
                           title="Editar Factura"
                         >
