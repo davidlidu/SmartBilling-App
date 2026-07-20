@@ -1,5 +1,6 @@
 const db = require('../database');
 const { v4: uuidv4 } = require('uuid');
+const { syncPaymentToGestor } = require('../services/gestorSync');
 
 // Helper to ensure values are numbers or null
 const parseOptionalFloat = (value) => {
@@ -46,6 +47,12 @@ exports.createPayment = async (req, res, next) => {
     };
 
     await db.query('INSERT INTO payments SET ?', paymentData);
+
+    // Sincronizar el abono como INGRESO en el Gestor Financiero (best-effort, no bloquea la respuesta).
+    syncPaymentToGestor(paymentData).catch((e) =>
+      console.error('[createPayment] Fallo al sincronizar con el Gestor:', e.message)
+    );
+
     res.status(201).json(paymentData);
   } catch (err) {
     if (err.code === 'ER_NO_REFERENCED_ROW_2') {
