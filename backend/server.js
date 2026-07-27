@@ -26,9 +26,12 @@ app.use(
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Logger
+// Logger: por defecto solo registra operaciones que modifican datos (POST/PUT/DELETE),
+// no el flujo constante de GET. Para ver todo, arranca con HTTP_LOG=all.
 app.use((req, res, next) => {
-    console.log(`[Request] ${req.method} ${req.url}`);
+    if (process.env.HTTP_LOG === 'all' || req.method !== 'GET') {
+        console.log(`[Request] ${req.method} ${req.url}`);
+    }
     next();
 });
 

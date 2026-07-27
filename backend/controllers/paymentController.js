@@ -1,6 +1,6 @@
 const db = require('../database');
 const { v4: uuidv4 } = require('uuid');
-const { syncPaymentToGestor } = require('../services/gestorSync');
+const { syncPaymentToGestor, updatePaymentInGestor, deletePaymentInGestor } = require('../services/gestorSync');
 
 // Helper to ensure values are numbers or null
 const parseOptionalFloat = (value) => {
@@ -103,6 +103,14 @@ exports.updatePayment = async (req, res, next) => {
     }
 
     const [rows] = await db.query('SELECT * FROM payments WHERE id = ?', [id]);
+
+    // Sincronizar la edición con el Gestor (best-effort). rows[0] incluye clientId.
+    if (rows[0]) {
+      updatePaymentInGestor(rows[0]).catch((e) =>
+        console.error('[updatePayment] Fallo al sincronizar con el Gestor:', e.message)
+      );
+    }
+
     res.json(rows[0]);
   } catch (err) {
     next(err);
@@ -119,6 +127,12 @@ exports.deletePayment = async (req, res, next) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Payment not found.' });
     }
+
+    // Eliminar el ingreso correspondiente en el Gestor (best-effort).
+    deletePaymentInGestor(id).catch((e) =>
+      console.error('[deletePayment] Fallo al sincronizar con el Gestor:', e.message)
+    );
+
     res.status(204).send(); // No Content
   } catch (err) {
     next(err);
