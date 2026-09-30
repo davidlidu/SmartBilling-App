@@ -6,7 +6,7 @@ import { getClientById } from '../../services/clientService';
 import { getSettings } from '../../services/settingsService';
 import { DEFAULT_SENDER_DETAILS } from '../../constants';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { formatCurrency, formatDateForDisplay } from '../../utils/formatting';
+import { formatCurrency, formatDateForDisplay, formatTrm } from '../../utils/formatting';
 import { generatePdfFromElement } from '../../services/pdfService';
 import { Download, ArrowLeft } from 'lucide-react';
 
@@ -135,7 +135,10 @@ const InvoicePdfViewPage: React.FC = () => {
     );
   }
 
+  const currency = invoice.currency || 'COP';
+  const isUsd = currency === 'USD';
   const totalAmount = invoice.lineItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const totalAmountCop = isUsd ? Math.round(totalAmount * (invoice.exchangeRate || 0)) : totalAmount;
 
   return (
     <div className="bg-secondary-100 min-h-screen py-8 px-4">
@@ -205,8 +208,8 @@ const InvoicePdfViewPage: React.FC = () => {
 
                 <td className="py-2 px-1 text-right align-top">{item.quantity.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</td>
                 <td className="py-2 px-1 text-center align-top">{item.unit}</td>
-                <td className="py-2 px-1 text-right align-top">{formatCurrency(item.unitPrice)}</td>
-                <td className="py-2 px-1 text-right align-top">{formatCurrency(item.quantity * item.unitPrice)}</td>
+                <td className="py-2 px-1 text-right align-top">{formatCurrency(item.unitPrice, currency)}</td>
+                <td className="py-2 px-1 text-right align-top">{formatCurrency(item.quantity * item.unitPrice, currency)}</td>
               </tr>
             ))}
           </tbody>
@@ -216,9 +219,21 @@ const InvoicePdfViewPage: React.FC = () => {
         <div className="flex justify-end mb-8">
           <div className="w-auto min-w-[200px] sm:min-w-[250px]">
             <div className="flex justify-between p-2 bg-gray-100">
-              <span className="font-bold text-gray-700 uppercase">Valor Total</span>
-              <span className="font-bold text-gray-700">{formatCurrency(totalAmount)}</span>
+              <span className="font-bold text-gray-700 uppercase">Valor Total{isUsd ? ' USD' : ''}</span>
+              <span className="font-bold text-gray-700 ml-6">{formatCurrency(totalAmount, currency)}</span>
             </div>
+            {isUsd && (
+              <>
+                <div className="flex justify-between px-2 py-1 text-gray-600">
+                  <span>TRM ({formatDateForDisplay(invoice.date)})</span>
+                  <span className="ml-6">{formatTrm(invoice.exchangeRate)}</span>
+                </div>
+                <div className="flex justify-between p-2 bg-gray-100">
+                  <span className="font-bold text-gray-700 uppercase">Equivalente COP</span>
+                  <span className="font-bold text-gray-700 ml-6">{formatCurrency(totalAmountCop)}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

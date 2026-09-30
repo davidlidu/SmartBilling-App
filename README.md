@@ -206,7 +206,9 @@ CREATE TABLE IF NOT EXISTS invoices (
     date DATE NOT NULL,
     clientId VARCHAR(36) NOT NULL,
     notes TEXT,
-    totalAmount DECIMAL(15, 2) DEFAULT 0.00,
+    currency VARCHAR(3) NOT NULL DEFAULT 'COP', -- Moneda de los ítems: COP | USD
+    exchangeRate DECIMAL(12, 2) NULL, -- TRM (COP por 1 USD) fijada al generar la factura
+    totalAmount DECIMAL(15, 2) DEFAULT 0.00, -- Siempre en COP
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (clientId) REFERENCES clients(id) ON DELETE RESTRICT ON UPDATE CASCADE -- RESTRICT para evitar borrar cliente con facturas

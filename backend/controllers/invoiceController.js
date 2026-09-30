@@ -1,9 +1,30 @@
 const db = require('../database');
 const { v4: uuidv4 } = require('uuid');
+const { getTrmForDate } = require('../services/trm');
 
-// Helper function to calculate total amount
+const SUPPORTED_CURRENCIES = ['COP', 'USD'];
+
+// Helper function to calculate total amount (in the invoice currency)
 const calculateTotalAmount = (lineItems) => {
   return lineItems.reduce((sum, item) => sum + (parseFloat(item.quantity) * parseFloat(item.unitPrice)), 0);
+};
+
+// Normaliza moneda/TRM y calcula el total en COP (totalAmount siempre se guarda en COP).
+// Devuelve { error } si los datos no son válidos.
+const resolveCurrencyData = (body, lineItems) => {
+  const currency = (body.currency || 'COP').toUpperCase();
+  if (!SUPPORTED_CURRENCIES.includes(currency)) {
+    return { error: `Moneda no soportada: ${currency}` };
+  }
+  const itemsTotal = calculateTotalAmount(lineItems);
+  if (currency === 'COP') {
+    return { currency, exchangeRate: null, totalAmount: itemsTotal };
+  }
+  const exchangeRate = parseFloat(body.exchangeRate);
+  if (!exchangeRate || isNaN(exchangeRate) || exchangeRate <= 0) {
+    return { error: 'Las facturas en USD requieren una TRM válida.' };
+  }
+  return { currency, exchangeRate, totalAmount: Math.round(itemsTotal * exchangeRate) };
 };
 
 exports.getAllInvoices = async (req, res, next) => {
@@ -55,8 +76,13 @@ exports.createInvoice = async (req, res, next) => {
       return res.status(400).json({ message: 'Datos de factura incompletos o incorrectos.' });
     }
 
+    const currencyData = resolveCurrencyData(req.body, lineItems);
+    if (currencyData.error) {
+      await connection.rollback();
+      return res.status(400).json({ message: currencyData.error });
+    }
+
     const newInvoiceId = uuidv4();
-    const totalAmount = calculateTotalAmount(lineItems);
 
     const invoiceData = {
       id: newInvoiceId,
@@ -64,7 +90,7 @@ exports.createInvoice = async (req, res, next) => {
       date,
       clientId,
       notes,
-      totalAmount
+      ...currencyData
     };
     await connection.query('INSERT INTO invoices SET ?', invoiceData);
 
@@ -107,9 +133,13 @@ exports.updateInvoice = async (req, res, next) => {
       return res.status(400).json({ message: 'Datos de factura incompletos o incorrectos.' });
     }
     
-    const totalAmount = calculateTotalAmount(lineItems);
+    const currencyData = resolveCurrencyData(req.body, lineItems);
+    if (currencyData.error) {
+      await connection.rollback();
+      return res.status(400).json({ message: currencyData.error });
+    }
 
-    const invoiceData = { invoiceNumber, date, clientId, notes, totalAmount };
+    const invoiceData = { invoiceNumber, date, clientId, notes, ...currencyData };
     const [updateResult] = await connection.query('UPDATE invoices SET ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?', [invoiceData, id]);
 
     if (updateResult.affectedRows === 0) {
@@ -184,5 +214,21 @@ exports.getNextInvoiceNumber = async (req, res, next) => {
         res.json({ nextInvoiceNumber: String(nextNumber) });
     } catch (err) {
         next(err);
+    }
+};
+
+// TRM oficial vigente para una fecha (YYYY-MM-DD). Por defecto, hoy (hora Colombia).
+exports.getTrm = async (req, res, next) => {
+    try {
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+        const date = req.query.date || today;
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            return res.status(400).json({ message: 'Fecha inválida. Formato esperado: YYYY-MM-DD' });
+        }
+        const trm = await getTrmForDate(date);
+        res.json(trm);
+    } catch (err) {
+        console.error('[getTrm]', err.message);
+        res.status(502).json({ message: `No se pudo consultar la TRM: ${err.message}` });
     }
 };

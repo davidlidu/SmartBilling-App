@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const db = require('./database');
+const { runMigrations } = require('./migrations');
 
 const clientRoutes = require('./routes/clientRoutes');
 const invoiceRoutes = require('./routes/invoiceRoutes');
@@ -74,6 +75,7 @@ app.use((err, req, res, next) => {
 async function start() {
   try {
     await db.waitForDatabase();
+    await runMigrations();
     app.listen(PORT, () => {
       console.log(`🚀 Backend escuchando en puerto ${PORT}`);
     });

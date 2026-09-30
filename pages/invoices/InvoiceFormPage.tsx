@@ -1,14 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
-import { Invoice, Client, LineItem, SenderDetails } from '../../types';
-import { getInvoiceById, createInvoice, updateInvoice, getNextInvoiceNumber } from '../../services/invoiceService';
+import { Invoice, Client, LineItem, SenderDetails, InvoiceCurrency, TrmInfo } from '../../types';
+import { getInvoiceById, createInvoice, updateInvoice, getNextInvoiceNumber, getTrm } from '../../services/invoiceService';
 import { getClients } from '../../services/clientService';
 import { getSettings } from '../../services/settingsService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import RichTextEditor from '../../components/RichTextEditor';
 import { DEFAULT_UNIT, DEFAULT_SENDER_DETAILS } from '../../constants';
-import { formatCurrency, formatDateForInput } from '../../utils/formatting';
-import { Save, Plus, Trash2, ArrowLeft, Hash, Calendar, UserCheck, Package } from 'lucide-react';
+import { formatCurrency, formatDateForInput, formatTrm, formatDateForDisplay } from '../../utils/formatting';
+import { Save, Plus, Trash2, ArrowLeft, Hash, Calendar, UserCheck, Package, DollarSign, RefreshCw } from 'lucide-react';
 
 const InvoiceFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,7 +22,12 @@ const InvoiceFormPage: React.FC = () => {
     clientId: '',
     lineItems: [{ id: String(Date.now()), description: '', quantity: 1, unit: DEFAULT_UNIT, unitPrice: 0 }],
     notes: '',
+    currency: 'COP',
+    exchangeRate: null,
   });
+  const [trmInfo, setTrmInfo] = useState<TrmInfo | null>(null);
+  const [isTrmLoading, setIsTrmLoading] = useState(false);
+  const [trmError, setTrmError] = useState<string | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isPageLoading, setIsPageLoading] = useState(true);
@@ -58,7 +63,7 @@ const InvoiceFormPage: React.FC = () => {
 
       if (isEditing) {
         if (fetchedInvoiceData) {
-          setInvoice(fetchedInvoiceData);
+          setInvoice({ ...fetchedInvoiceData, currency: fetchedInvoiceData.currency || 'COP' });
         } else {
           setError('Factura no encontrada.');
         }
@@ -84,9 +89,46 @@ const InvoiceFormPage: React.FC = () => {
   }, [fetchRequiredData]);
 
 
+  const isUsd = invoice.currency === 'USD';
+
+  // Consulta la TRM oficial vigente para la fecha de la factura y la fija en la factura.
+  const fetchTrm = async (date: string) => {
+    setIsTrmLoading(true);
+    setTrmError(null);
+    try {
+      const trm = await getTrm(date);
+      setTrmInfo(trm);
+      setInvoice(prev => ({ ...prev, exchangeRate: trm.value }));
+    } catch (err: any) {
+      console.error(err);
+      setTrmInfo(null);
+      setTrmError(err.message || 'No se pudo consultar la TRM. Ingrésela manualmente.');
+    } finally {
+      setIsTrmLoading(false);
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setInvoice(prev => ({ ...prev, [name]: value }));
+    // Al generar una factura nueva en USD, la TRM sigue a la fecha de la factura.
+    // En facturas existentes la TRM queda fija (se puede actualizar con el botón).
+    if (name === 'date' && isUsd && !isEditing && value) {
+      fetchTrm(value);
+    }
+  };
+
+  const handleCurrencyChange = (currency: InvoiceCurrency) => {
+    setInvoice(prev => ({ ...prev, currency }));
+    setTrmError(null);
+    if (currency === 'USD' && !invoice.exchangeRate) {
+      fetchTrm(invoice.date || formatDateForInput(new Date()));
+    }
+  };
+
+  const handleExchangeRateChange = (value: string) => {
+    setTrmInfo(null); // valor manual: ya no corresponde a la consulta oficial
+    setInvoice(prev => ({ ...prev, exchangeRate: parseFloat(value) || null }));
   };
 
   const handleLineItemChange = (index: number, field: keyof LineItem, value: string | number) => {
@@ -125,6 +167,12 @@ const InvoiceFormPage: React.FC = () => {
     return (invoice.lineItems || []).reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
   };
 
+  // Total en COP (para USD: total USD x TRM, redondeado al peso como en el backend)
+  const calculateTotalCop = (): number => {
+    const total = calculateTotal();
+    return isUsd ? Math.round(total * (invoice.exchangeRate || 0)) : total;
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!invoice.clientId) {
@@ -133,6 +181,10 @@ const InvoiceFormPage: React.FC = () => {
     }
     if (!invoice.lineItems || invoice.lineItems.length === 0) {
       setError("Por favor, agregue al menos un ítem.");
+      return;
+    }
+    if (isUsd && !(invoice.exchangeRate && invoice.exchangeRate > 0)) {
+      setError("Ingrese o consulte la TRM para facturar en USD.");
       return;
     }
 
@@ -145,6 +197,8 @@ const InvoiceFormPage: React.FC = () => {
         clientId: invoice.clientId,
         lineItems: invoice.lineItems,
         notes: invoice.notes || '',
+        currency: invoice.currency || 'COP',
+        exchangeRate: isUsd ? invoice.exchangeRate : null,
       };
 
       if (isEditing && id) {
@@ -237,6 +291,67 @@ const InvoiceFormPage: React.FC = () => {
               </select>
             </div>
           </div>
+
+          {/* Moneda y TRM */}
+          <div className="mt-5 pt-5 border-t border-secondary-100 grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div>
+              <label className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">Moneda de cobro</label>
+              <div className="flex rounded-xl border border-secondary-200 p-1 bg-secondary-50">
+                {(['COP', 'USD'] as InvoiceCurrency[]).map(cur => (
+                  <button
+                    key={cur}
+                    type="button"
+                    onClick={() => handleCurrencyChange(cur)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${invoice.currency === cur ? 'bg-white text-primary-700 shadow-sm' : 'text-secondary-400 hover:text-secondary-600'}`}
+                  >
+                    {cur === 'COP' ? 'Pesos (COP)' : 'Dólares (USD)'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {isUsd && (
+              <div className="md:col-span-2">
+                <label htmlFor="exchangeRate" className="block text-xs font-semibold text-secondary-500 mb-1.5 uppercase tracking-wider">TRM (COP por 1 USD)</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <DollarSign size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" />
+                    <input
+                      type="number"
+                      id="exchangeRate"
+                      value={invoice.exchangeRate ?? ''}
+                      onChange={(e) => handleExchangeRateChange(e.target.value)}
+                      required
+                      min="0"
+                      step="0.01"
+                      placeholder={isTrmLoading ? 'Consultando...' : 'Ej: 4000.00'}
+                      className="w-full p-3 pl-9 border border-secondary-200 rounded-xl focus:ring-2 focus:ring-primary-300 focus:border-primary-400 transition-all text-sm"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fetchTrm(invoice.date || formatDateForInput(new Date()))}
+                    disabled={isTrmLoading}
+                    className="flex items-center gap-1.5 px-4 rounded-xl border border-primary-200 text-primary-700 hover:bg-primary-50 text-sm font-semibold transition-all disabled:opacity-50"
+                    title="Consultar TRM oficial para la fecha de la factura"
+                  >
+                    <RefreshCw size={16} className={isTrmLoading ? 'animate-spin' : ''} />
+                    TRM oficial
+                  </button>
+                </div>
+                {trmInfo && (
+                  <p className="text-xs text-secondary-400 mt-1.5">
+                    TRM vigente {formatDateForDisplay(trmInfo.validFrom)}
+                    {trmInfo.validTo !== trmInfo.validFrom ? ` – ${formatDateForDisplay(trmInfo.validTo)}` : ''} · {trmInfo.source}
+                  </p>
+                )}
+                {!trmInfo && isEditing && invoice.exchangeRate && !trmError && (
+                  <p className="text-xs text-secondary-400 mt-1.5">TRM fijada al generar la factura.</p>
+                )}
+                {trmError && <p className="text-xs text-danger mt-1.5">{trmError}</p>}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Line Items Card */}
@@ -302,7 +417,7 @@ const InvoiceFormPage: React.FC = () => {
                     </select>
                   </div>
                   <div className="col-span-4 md:col-span-2">
-                    <label htmlFor={`unitPrice-${index}`} className="block text-xs font-semibold text-secondary-500 mb-1.5">Precio Unit.</label>
+                    <label htmlFor={`unitPrice-${index}`} className="block text-xs font-semibold text-secondary-500 mb-1.5">Precio Unit.{isUsd ? ' (USD)' : ''}</label>
                     <input
                       type="number"
                       id={`unitPrice-${index}`}
@@ -343,7 +458,12 @@ const InvoiceFormPage: React.FC = () => {
         <div className="flex justify-end">
           <div className="bg-gradient-to-r from-primary-600 to-primary-800 text-white px-8 py-4 rounded-2xl shadow-glow">
             <p className="text-xs text-primary-200 font-medium uppercase tracking-wider">Monto Total</p>
-            <p className="text-3xl font-bold mt-0.5">{formatCurrency(calculateTotal())}</p>
+            <p className="text-3xl font-bold mt-0.5">{formatCurrency(calculateTotal(), invoice.currency)}</p>
+            {isUsd && (
+              <p className="text-sm text-primary-100 mt-1">
+                ≈ {formatCurrency(calculateTotalCop())} <span className="text-primary-200 text-xs">· TRM {formatTrm(invoice.exchangeRate)}</span>
+              </p>
+            )}
           </div>
         </div>
 

@@ -6,7 +6,7 @@ import { getClients } from '../../services/clientService';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Modal from '../../components/Modal';
 import { PlusCircle, Edit3, Trash2, Search, FileText, Eye, Filter, Download, X } from 'lucide-react';
-import { formatCurrency, formatDateForDisplay } from '../../utils/formatting';
+import { formatCurrency, formatDateForDisplay, formatTrm } from '../../utils/formatting';
 
 const InvoiceListPage: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -301,7 +301,12 @@ const InvoiceListPage: React.FC = () => {
                     </td>
                     <td className="px-5 py-4 text-sm whitespace-nowrap text-secondary-700 font-medium">{getClientName(invoice.clientId)}</td>
                     <td className="px-5 py-4 text-sm whitespace-nowrap text-secondary-500">{formatDateForDisplay(invoice.date)}</td>
-                    <td className="px-5 py-4 text-sm whitespace-nowrap text-secondary-800 font-bold">{formatCurrency(calculateInvoiceTotal(invoice))}</td>
+                    <td className="px-5 py-4 text-sm whitespace-nowrap text-secondary-800 font-bold">
+                      {formatCurrency(calculateInvoiceTotal(invoice))}
+                      {invoice.currency === 'USD' && (
+                        <span className="block text-xs font-medium text-secondary-400">USD · TRM {formatTrm(invoice.exchangeRate)}</span>
+                      )}
+                    </td>
                     <td className="px-5 py-4 text-sm">
                       <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                         <Link

@@ -3,6 +3,7 @@ const router = express.Router();
 const invoiceController = require('../controllers/invoiceController');
 
 router.get('/next-number', invoiceController.getNextInvoiceNumber); // Debe ir antes de /:id
+router.get('/trm', invoiceController.getTrm); // Debe ir antes de /:id
 router.get('/', invoiceController.getAllInvoices);
 router.get('/:id', invoiceController.getInvoiceById);
 router.post('/', invoiceController.createInvoice);

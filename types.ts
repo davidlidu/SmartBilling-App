@@ -24,6 +24,19 @@ export interface Invoice {
   client?: Client; // Populated for display
   lineItems: LineItem[];
   notes?: string; // For things like bank account details
+  currency?: InvoiceCurrency; // Currency of the line item prices (default COP)
+  exchangeRate?: number | null; // TRM (COP per 1 USD) fixed when the invoice is generated
+  totalAmount?: number; // Always in COP (computed by the backend)
+}
+
+export type InvoiceCurrency = 'COP' | 'USD';
+
+export interface TrmInfo {
+  value: number;
+  date: string;
+  validFrom: string;
+  validTo: string;
+  source: string;
 }
 
 export interface SenderDetails {

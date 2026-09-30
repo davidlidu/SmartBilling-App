@@ -1,5 +1,5 @@
 
-import { Invoice } from '../types';
+import { Invoice, TrmInfo } from '../types';
 
 const API_BASE_URL = 'https://api.facturador.lidutech.net/api'; // PRODUCTION: Adjust to your deployed backend URL. e.g., https://yourdomain.com/api or '/api' if proxied.
 
@@ -30,6 +30,7 @@ export const getInvoices = async (): Promise<Invoice[]> => {
   // The backend now calculates totalAmount and can join clientName
   return invoices.map(inv => ({
     ...inv,
+    exchangeRate: inv.exchangeRate != null ? parseFloat(String(inv.exchangeRate)) : null,
     lineItems: inv.lineItems ? inv.lineItems.map(item => ({
         ...item,
         quantity: parseFloat(String(item.quantity)) || 0,
@@ -43,6 +44,9 @@ export const getInvoiceById = async (id: string): Promise<Invoice | undefined> =
   if (response.status === 404) return undefined;
   const invoice = await handleResponse<Invoice>(response);
 
+  if (invoice && invoice.exchangeRate != null) {
+    invoice.exchangeRate = parseFloat(String(invoice.exchangeRate));
+  }
   if (invoice && invoice.lineItems) {
     invoice.lineItems = invoice.lineItems.map(item => ({
       ...item,
@@ -85,4 +89,10 @@ export const getNextInvoiceNumber = async (): Promise<string> => {
   const response = await fetch(`${API_BASE_URL}/invoices/next-number`);
   const data = await handleResponse<{ nextInvoiceNumber: string }>(response);
   return data.nextInvoiceNumber;
+};
+
+// TRM oficial vigente para la fecha dada (YYYY-MM-DD)
+export const getTrm = async (date: string): Promise<TrmInfo> => {
+  const response = await fetch(`${API_BASE_URL}/invoices/trm?date=${encodeURIComponent(date)}`);
+  return handleResponse<TrmInfo>(response);
 };

@@ -1,14 +1,22 @@
-export const formatCurrency = (amount: number | string | undefined): string => {
+export const formatCurrency = (amount: number | string | undefined, currency: 'COP' | 'USD' = 'COP'): string => {
   if (amount === undefined || amount === null || amount === '') return '$0.00';
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (isNaN(num)) return '$0.00';
-  
+
+  const decimals = currency === 'USD' ? 2 : 0;
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
-    currency: 'COP',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    currency,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
   }).format(num);
+};
+
+// TRM con 2 decimales, ej: "4.123,45"
+export const formatTrm = (value: number | string | null | undefined): string => {
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (num === undefined || num === null || isNaN(num)) return '-';
+  return new Intl.NumberFormat('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
 };
 
 // --- CORRECCIÓN DE FECHA (MÉTODO MANUAL) ---
