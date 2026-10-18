@@ -26,9 +26,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     // Check for token on initial load
     try {
+        // Sesión vigente si hay un JWT sin vencer (antes solo se aceptaba 'mock-token' y había que entrar cada vez).
         const token = localStorage.getItem('authToken');
-        if (token === 'mock-token') {
+        const payload = token && token.split('.').length === 3 ? JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) : null;
+        if (payload?.exp && payload.exp * 1000 > Date.now()) {
           setIsAuthenticated(true);
+        } else if (token) {
+          localStorage.removeItem('authToken');
         }
     } catch (e) {
         console.error("Could not access localStorage:", e);

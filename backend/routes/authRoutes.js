@@ -36,7 +36,8 @@ router.post("/login", async (req, res) => {
       { expiresIn: "8h" }
     );
 
-    res.json({ token, user });
+    // Nunca devolver el hash de la contraseña.
+    res.json({ token, user: { id: user.id, username: user.username } });
 
   } catch (err) {
     console.error(err);

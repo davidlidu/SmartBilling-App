@@ -9,6 +9,7 @@ const invoiceRoutes = require('./routes/invoiceRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const authRoutes = require('./routes/authRoutes');
+const requireAuth = require('./middleware/requireAuth');
 
 const app = express();
 const PORT = process.env.API_PORT || 3001;
@@ -48,7 +49,8 @@ app.options('*', (req, res) => {
 });
 
 
-// API Routes
+// API Routes (todas exigen sesión, menos el login)
+app.use(['/api/clients', '/api/invoices', '/api/settings', '/api/payments'], requireAuth);
 app.use('/api/clients', clientRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/settings', settingsRoutes);
